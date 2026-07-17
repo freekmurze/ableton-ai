@@ -234,1159 +234,44 @@ class AbletonAI(ControlSurface):
             self.log_message("Client handler stopped")
     
     def _process_command(self, command):
-        """Process a command from the client and return a response"""
+        """Process a command from the client and return a response.
+
+        Dispatch is a table lookup (see _DISPATCH). Read commands run on the
+        socket thread; commands that mutate Live are scheduled on Live's main
+        thread, because touching Live off the main thread crashes it.
+        """
         command_type = command.get("type", "")
         params = command.get("params", {})
-        
-        # Initialize response
-        response = {
-            "status": "success",
-            "result": {}
-        }
-        
+        response = {"status": "success", "result": {}}
         try:
-            # Route the command to the appropriate handler
-            if command_type == "health_check":
-                response["result"] = self._health_check()
-            elif command_type == "get_session_info":
-                response["result"] = self._get_session_info()
-            elif command_type == "get_playback_position":
-                response["result"] = self._get_playback_position()
-            elif command_type == "get_track_info":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_info(track_index)
-            elif command_type == "get_clip_notes":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_notes(track_index, clip_index)
-            elif command_type == "get_clip_info":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_info(track_index, clip_index)
-            elif command_type == "get_device_parameters":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_device_parameters(track_index, device_index)
-            # Scene queries
-            elif command_type == "get_all_scenes":
-                response["result"] = self._get_all_scenes()
-            # Return track queries
-            elif command_type == "get_return_tracks":
-                response["result"] = self._get_return_tracks()
-            elif command_type == "get_return_track_info":
-                return_index = params.get("return_index", 0)
-                response["result"] = self._get_return_track_info(return_index)
-            # View queries
-            elif command_type == "get_current_view":
-                response["result"] = self._get_current_view()
-            # Arrangement queries
-            elif command_type == "get_arrangement_length":
-                response["result"] = self._get_arrangement_length()
-            elif command_type == "get_locators":
-                response["result"] = self._get_locators()
-            # Routing queries
-            elif command_type == "get_track_input_routing":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_input_routing(track_index)
-            elif command_type == "get_track_output_routing":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_output_routing(track_index)
-            elif command_type == "get_available_inputs":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_available_inputs(track_index)
-            elif command_type == "get_available_outputs":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_available_outputs(track_index)
-            # Performance/session queries
-            elif command_type == "get_cpu_load":
-                response["result"] = self._get_cpu_load()
-            elif command_type == "get_session_path":
-                response["result"] = self._get_session_path()
-            elif command_type == "is_session_modified":
-                response["result"] = self._is_session_modified()
-            elif command_type == "get_metronome_state":
-                response["result"] = self._get_metronome_state()
-            # Color getters
-            elif command_type == "get_track_color":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_color(track_index)
-            elif command_type == "get_clip_color":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_color(track_index, clip_index)
-            elif command_type == "get_scene_color":
-                scene_index = params.get("scene_index", 0)
-                response["result"] = self._get_scene_color(scene_index)
-            # Audio clip property getters
-            elif command_type == "get_clip_gain":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_gain(track_index, clip_index)
-            elif command_type == "get_clip_pitch":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_pitch(track_index, clip_index)
-            elif command_type == "get_clip_loop":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_loop(track_index, clip_index)
-            # Send level getter
-            elif command_type == "get_send_level":
-                track_index = params.get("track_index", 0)
-                send_index = params.get("send_index", 0)
-                response["result"] = self._get_send_level(track_index, send_index)
-            # Warp marker queries
-            elif command_type == "get_warp_markers":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_warp_markers(track_index, clip_index)
-            # Clip launch and follow action queries
-            elif command_type == "get_clip_launch_mode":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_launch_mode(track_index, clip_index)
-            elif command_type == "get_clip_launch_quantization":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_launch_quantization(track_index, clip_index)
-            elif command_type == "get_clip_follow_action":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_follow_action(track_index, clip_index)
-            # Track state queries
-            elif command_type == "get_track_playing_slot_index":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_playing_slot_index(track_index)
-            elif command_type == "get_track_fired_slot_index":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_fired_slot_index(track_index)
-            elif command_type == "get_track_output_meter":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_output_meter(track_index)
-            # Crossfader queries
-            elif command_type == "get_crossfader":
-                response["result"] = self._get_crossfader()
-            elif command_type == "get_track_crossfade_assign":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_crossfade_assign(track_index)
-            # Song properties queries
-            elif command_type == "get_swing_amount":
-                response["result"] = self._get_swing_amount()
-            elif command_type == "get_song_root_note":
-                response["result"] = self._get_song_root_note()
-            elif command_type == "get_song_scale":
-                response["result"] = self._get_song_scale()
-            # Audio clip queries
-            elif command_type == "get_clip_ram_mode":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_ram_mode(track_index, clip_index)
-            elif command_type == "get_audio_clip_file_path":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_audio_clip_file_path(track_index, clip_index)
-            # View queries
-            elif command_type == "get_view_zoom":
-                response["result"] = self._get_view_zoom()
-            elif command_type == "get_follow_mode":
-                response["result"] = self._get_follow_mode()
-            elif command_type == "get_draw_mode":
-                response["result"] = self._get_draw_mode()
-            elif command_type == "get_grid_quantization":
-                response["result"] = self._get_grid_quantization()
-            # Drum rack queries
-            elif command_type == "get_drum_rack_pads":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_drum_rack_pads(track_index, device_index)
-            elif command_type == "get_rack_macros":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_rack_macros(track_index, device_index)
-            # Punch and arrangement queries
-            elif command_type == "get_punch_settings":
-                response["result"] = self._get_punch_settings()
-            elif command_type == "get_back_to_arrangement":
-                response["result"] = self._get_back_to_arrangement()
-            # Track state queries
-            elif command_type == "get_track_delay":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_delay(track_index)
-            elif command_type == "get_track_is_grouped":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_is_grouped(track_index)
-            elif command_type == "get_track_is_foldable":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_is_foldable(track_index)
-            # Clip queries
-            elif command_type == "get_clip_start_end_markers":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_start_end_markers(track_index, clip_index)
-            elif command_type == "get_clip_is_playing":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_is_playing(track_index, clip_index)
-            elif command_type == "get_clip_velocity_amount":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_velocity_amount(track_index, clip_index)
-            # Selection queries
-            elif command_type == "get_selected_track":
-                response["result"] = self._get_selected_track()
-            elif command_type == "get_selected_scene":
-                response["result"] = self._get_selected_scene()
-            # Quantization queries
-            elif command_type == "get_clip_trigger_quantization":
-                response["result"] = self._get_clip_trigger_quantization()
-            elif command_type == "get_midi_recording_quantization":
-                response["result"] = self._get_midi_recording_quantization()
-            # Global settings queries
-            elif command_type == "get_groove_amount":
-                response["result"] = self._get_groove_amount()
-            elif command_type == "get_exclusive_arm":
-                response["result"] = self._get_exclusive_arm()
-            elif command_type == "get_exclusive_solo":
-                response["result"] = self._get_exclusive_solo()
-            elif command_type == "get_record_mode":
-                response["result"] = self._get_record_mode()
-            elif command_type == "get_can_capture_midi":
-                response["result"] = self._get_can_capture_midi()
-            # Song info queries
-            elif command_type == "get_signature":
-                response["result"] = self._get_signature()
-            elif command_type == "get_song_length":
-                response["result"] = self._get_song_length()
-            elif command_type == "get_current_song_time":
-                response["result"] = self._get_current_song_time()
-            elif command_type == "get_master_output_meter":
-                response["result"] = self._get_master_output_meter()
-            elif command_type == "get_device_view_state":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_device_view_state(track_index, device_index)
-            # Detail view queries
-            elif command_type == "get_detail_clip":
-                response["result"] = self._get_detail_clip()
-            elif command_type == "get_highlighted_clip_slot":
-                response["result"] = self._get_highlighted_clip_slot()
-            elif command_type == "get_selected_device":
-                response["result"] = self._get_selected_device()
-            # Cue volume
-            elif command_type == "get_cue_volume":
-                response["result"] = self._get_cue_volume()
-            # Send pre/post
-            elif command_type == "get_send_pre_post":
-                track_index = params.get("track_index", 0)
-                send_index = params.get("send_index", 0)
-                response["result"] = self._get_send_pre_post(track_index, send_index)
-            # Audio clip fades
-            elif command_type == "get_clip_fades":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_fades(track_index, clip_index)
-            # Clip time
-            elif command_type == "get_clip_start_time":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_start_time(track_index, clip_index)
-            elif command_type == "get_clip_end_time":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_end_time(track_index, clip_index)
-            # Automation state
-            elif command_type == "get_session_automation_record":
-                response["result"] = self._get_session_automation_record()
-            elif command_type == "get_arrangement_overdub":
-                response["result"] = self._get_arrangement_overdub()
-            # Drum pad info
-            elif command_type == "get_drum_pad_info":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                pad_index = params.get("pad_index", 0)
-                response["result"] = self._get_drum_pad_info(track_index, device_index, pad_index)
-            # Simpler/Sampler
-            elif command_type == "get_simpler_sample_info":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_simpler_sample_info(track_index, device_index)
-            elif command_type == "get_simpler_parameters":
-                track_index = params.get("track_index", 0)
-                device_index = params.get("device_index", 0)
-                response["result"] = self._get_simpler_parameters(track_index, device_index)
-            # Notes in range
-            elif command_type == "get_notes_in_range":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                start_time = params.get("start_time", 0)
-                end_time = params.get("end_time", 4)
-                pitch_start = params.get("pitch_start", 0)
-                pitch_end = params.get("pitch_end", 127)
-                response["result"] = self._get_notes_in_range(track_index, clip_index, start_time, end_time, pitch_start, pitch_end)
-            # Track capabilities
-            elif command_type == "get_track_capabilities":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_capabilities(track_index)
-            # Track routing types
-            elif command_type == "get_track_available_input_types":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_available_input_types(track_index)
-            elif command_type == "get_track_available_output_types":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_available_output_types(track_index)
-            # Count in
-            elif command_type == "get_count_in_duration":
-                response["result"] = self._get_count_in_duration()
-            # Clip playing position
-            elif command_type == "get_clip_playing_position":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_playing_position(track_index, clip_index)
-            # Clip envelopes
-            elif command_type == "get_clip_has_envelopes":
-                track_index = params.get("track_index", 0)
-                clip_index = params.get("clip_index", 0)
-                response["result"] = self._get_clip_has_envelopes(track_index, clip_index)
-            # Track implicit arm
-            elif command_type == "get_track_implicit_arm":
-                track_index = params.get("track_index", 0)
-                response["result"] = self._get_track_implicit_arm(track_index)
-            # Quick track names
-            elif command_type == "get_all_track_names":
-                response["result"] = self._get_all_track_names()
-            # Music theory queries (no modification needed)
-            elif command_type == "get_scale_notes":
-                # Default to the SONG's real scale rather than always C major.
-                # Callers who pass root/scale_type explicitly still get exactly that.
-                song_root = getattr(self._song, "root_note", 0)
-                song_scale = getattr(self._song, "scale_name", "major")
-                root = params.get("root", song_root)
-                scale_type = params.get("scale_type", str(song_scale).lower().replace(" ", "_"))
-                response["result"] = self._get_scale_notes(root, scale_type)
-            elif command_type == "get_song_scale_names":
-                response["result"] = self._get_song_scale_names()
-            # Commands that modify Live's state should be scheduled on the main thread
-            elif command_type in ["create_midi_track", "create_audio_track", "set_track_name",
-                                 "set_track_mute", "set_track_solo", "set_track_arm",
-                                 "set_track_volume", "set_track_pan",
-                                 "delete_track", "duplicate_track", "set_track_color",
-                                 "create_clip", "delete_clip", "add_notes_to_clip", "add_notes_with_probability", "set_song_scale", "set_clip_name",
-                                 "load_browser_item_to_return",
-                                 "get_chain_device_parameters", "set_chain_device_parameter",
-                                 "duplicate_clip", "set_clip_color", "set_clip_loop",
-                                 "remove_notes", "remove_all_notes", "transpose_notes",
-                                 "set_tempo", "fire_clip", "stop_clip",
-                                 "start_playback", "stop_playback", "load_browser_item",
-                                 "set_device_parameter", "toggle_device", "delete_device",
-                                 "create_scene", "delete_scene", "fire_scene", "stop_scene",
-                                 "set_scene_name", "set_scene_color", "duplicate_scene",
-                                 "undo", "redo",
-                                 "set_send_level", "set_return_volume", "set_return_pan",
-                                 "focus_view", "select_track", "select_scene", "select_clip",
-                                 "start_recording", "stop_recording", "toggle_session_record",
-                                 "toggle_arrangement_record", "set_overdub", "capture_midi",
-                                 "set_arrangement_loop", "jump_to_time", "create_locator", "delete_locator",
-                                 "set_track_input_routing", "set_track_output_routing",
-                                 "set_metronome",
-                                 "quantize_clip_notes", "humanize_clip_timing", "humanize_clip_velocity",
-                                 "generate_drum_pattern", "generate_bassline",
-                                 # Audio clip editing
-                                 "set_clip_gain", "set_clip_pitch", "set_clip_warp_mode", "get_clip_warp_info",
-                                 # Warp markers
-                                 "add_warp_marker", "delete_warp_marker",
-                                 # Clip automation
-                                 "get_clip_automation", "set_clip_automation", "clear_clip_automation",
-                                 # Group tracks
-                                 "create_group_track", "ungroup_tracks", "fold_track", "unfold_track",
-                                 # Track monitoring
-                                 "set_track_monitoring", "get_track_monitoring",
-                                 # Device presets and rack chains
-                                 "get_device_by_name", "load_device_preset", "get_rack_chains", "select_rack_chain",
-                                 # Groove pool
-                                 "get_groove_pool", "apply_groove", "commit_groove",
-                                 # Clip launch and follow actions
-                                 "set_clip_launch_mode", "set_clip_launch_quantization", "set_clip_follow_action",
-                                 # Crossfader
-                                 "set_crossfader", "set_track_crossfade_assign",
-                                 # Song properties
-                                 "set_swing_amount", "set_song_root_note",
-                                 # Audio clip properties
-                                 "set_clip_ram_mode",
-                                 # View settings
-                                 "set_follow_mode", "set_draw_mode", "set_grid_quantization",
-                                 # Drum rack
-                                 "set_drum_rack_pad_mute", "set_drum_rack_pad_solo", "set_rack_macro",
-                                 # Punch
-                                 "set_punch_in", "set_punch_out", "trigger_back_to_arrangement",
-                                 # Track properties
-                                 "set_track_delay",
-                                 # Clip markers
-                                 "set_clip_start_marker", "set_clip_end_marker", "set_clip_velocity_amount",
-                                 # Quantization
-                                 "set_clip_trigger_quantization", "set_midi_recording_quantization",
-                                 # Global settings
-                                 "set_groove_amount", "set_exclusive_arm", "set_exclusive_solo",
-                                 # Transport
-                                 "continue_playing", "tap_tempo", "stop_all_clips",
-                                 # Song
-                                 "set_signature", "set_current_song_time",
-                                 # Return tracks
-                                 "create_return_track", "delete_return_track",
-                                 # Multi-track operations
-                                 "solo_exclusive", "unsolo_all", "unmute_all", "unarm_all",
-                                 # Device
-                                 "move_device", "move_device_left", "move_device_right", "set_device_collapsed",
-                                 # Track freeze/flatten
-                                 "freeze_track", "flatten_track",
-                                 # Cue points
-                                 "jump_to_cue_point", "jump_to_prev_cue", "jump_to_next_cue",
-                                 # Detail view
-                                 "set_detail_clip", "select_device",
-                                 # Cue volume
-                                 "set_cue_volume",
-                                 # Audio clip fades
-                                 "set_clip_fade_in", "set_clip_fade_out",
-                                 # Clip time
-                                 "set_clip_start_time", "set_clip_end_time",
-                                 # Automation
-                                 "set_session_automation_record", "set_arrangement_overdub", "re_enable_automation",
-                                 # Drum pad
-                                 "set_drum_pad_name",
-                                 # Track
-                                 "set_track_implicit_arm",
-                                 # Count in
-                                 "set_count_in_duration",
-                                 # Clip operations
-                                 "quantize_clip", "deselect_all_notes", "duplicate_clip_loop",
-                                 "set_clip_notes", "move_clip_notes",
-                                 # Scrub
-                                 "scrub_by"]:
+            entry = self._DISPATCH.get(command_type)
+            if entry is None:
+                response["status"] = "error"
+                response["message"] = "Unknown command: %s. Available commands include: get_session_info, get_track_info, set_track_volume, set_track_pan, create_clip, add_notes_to_clip, fire_scene, load_browser_item, etc." % command_type
+                return response
+            method_name, is_write = entry
+            handler = getattr(self, method_name)
+            if not is_write:
+                response["result"] = handler(params)
+            else:
                 # Use a thread-safe approach with a response queue
                 # maxsize=10 prevents unbounded memory growth
                 response_queue = queue.Queue(maxsize=10)
-                
-                # Define a function to execute on the main thread
+
                 def main_thread_task():
                     try:
-                        result = None
-                        if command_type == "create_midi_track":
-                            index = params.get("index", -1)
-                            result = self._create_midi_track(index)
-                        elif command_type == "create_audio_track":
-                            index = params.get("index", -1)
-                            result = self._create_audio_track(index)
-                        elif command_type == "set_track_name":
-                            track_index = params.get("track_index", 0)
-                            name = params.get("name", "")
-                            result = self._set_track_name(track_index, name)
-                        elif command_type == "set_track_mute":
-                            track_index = params.get("track_index", 0)
-                            mute = params.get("mute", False)
-                            result = self._set_track_mute(track_index, mute)
-                        elif command_type == "set_track_solo":
-                            track_index = params.get("track_index", 0)
-                            solo = params.get("solo", False)
-                            result = self._set_track_solo(track_index, solo)
-                        elif command_type == "set_track_arm":
-                            track_index = params.get("track_index", 0)
-                            arm = params.get("arm", False)
-                            result = self._set_track_arm(track_index, arm)
-                        elif command_type == "set_track_volume":
-                            track_index = params.get("track_index", 0)
-                            if "volume" not in params:
-                                raise ValueError("set_track_volume requires 'volume' (got keys: %s). "
-                                                 "Silently defaulting would set 0.85 and report success."
-                                                 % sorted(params.keys()))
-                            result = self._set_track_volume(track_index, params["volume"])
-                        elif command_type == "set_track_pan":
-                            track_index = params.get("track_index", 0)
-                            if "pan" not in params:
-                                raise ValueError("set_track_pan requires 'pan' (got keys: %s). "
-                                                 "Silently defaulting would centre the track and report success."
-                                                 % sorted(params.keys()))
-                            result = self._set_track_pan(track_index, params["pan"])
-                        elif command_type == "create_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            length = params.get("length", 4.0)
-                            result = self._create_clip(track_index, clip_index, length)
-                        elif command_type == "delete_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._delete_clip(track_index, clip_index)
-                        elif command_type == "add_notes_to_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            notes = params.get("notes", [])
-                            result = self._add_notes_to_clip(track_index, clip_index, notes)
-                        elif command_type == "get_chain_device_parameters":
-                            result = self._get_chain_device_parameters(
-                                params.get("track_index", 0), params.get("device_index", 0),
-                                params.get("chain_index", 0), params.get("chain_device_index", 0))
-                        elif command_type == "set_chain_device_parameter":
-                            result = self._set_chain_device_parameter(
-                                params.get("track_index", 0), params.get("device_index", 0),
-                                params.get("chain_index", 0), params.get("chain_device_index", 0),
-                                params.get("parameter_index", None), params.get("parameter_name", None),
-                                params.get("value", 0.0))
-                        elif command_type == "set_song_scale":
-                            result = self._set_song_scale(params.get("scale_name", None))
-                        elif command_type == "add_notes_with_probability":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            notes = params.get("notes", [])
-                            replace = params.get("replace", True)
-                            result = self._add_notes_with_probability(track_index, clip_index, notes, replace)
-                        elif command_type == "load_browser_item_to_return":
-                            # Moved here from the socket-thread chain: browser.load_item()
-                            # mutates Live and MUST run on the main thread, or Live crashes.
-                            return_index = params.get("return_index", 0)
-                            item_uri = params.get("item_uri", "")
-                            result = self._load_browser_item_to_return(return_index, item_uri)
-                        elif command_type == "set_clip_name":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            name = params.get("name", "")
-                            result = self._set_clip_name(track_index, clip_index, name)
-                        elif command_type == "set_tempo":
-                            tempo = params.get("tempo", 120.0)
-                            result = self._set_tempo(tempo)
-                        elif command_type == "fire_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._fire_clip(track_index, clip_index)
-                        elif command_type == "stop_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._stop_clip(track_index, clip_index)
-                        elif command_type == "start_playback":
-                            result = self._start_playback()
-                        elif command_type == "stop_playback":
-                            result = self._stop_playback()
-                        elif command_type == "load_instrument_or_effect":
-                            track_index = params.get("track_index", 0)
-                            uri = params.get("uri", "")
-                            result = self._load_instrument_or_effect(track_index, uri)
-                        elif command_type == "load_browser_item":
-                            track_index = params.get("track_index", 0)
-                            item_uri = params.get("item_uri", "")
-                            result = self._load_browser_item(track_index, item_uri)
-                        elif command_type == "set_device_parameter":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            parameter_index = params.get("parameter_index", 0)
-                            value = params.get("value", 0.0)
-                            result = self._set_device_parameter(track_index, device_index, parameter_index, value)
-                        # Scene commands
-                        elif command_type == "create_scene":
-                            index = params.get("index", -1)
-                            result = self._create_scene(index)
-                        elif command_type == "delete_scene":
-                            scene_index = params.get("scene_index", 0)
-                            result = self._delete_scene(scene_index)
-                        elif command_type == "fire_scene":
-                            scene_index = params.get("scene_index", 0)
-                            result = self._fire_scene(scene_index)
-                        elif command_type == "stop_scene":
-                            scene_index = params.get("scene_index", 0)
-                            result = self._stop_scene(scene_index)
-                        elif command_type == "set_scene_name":
-                            scene_index = params.get("scene_index", 0)
-                            name = params.get("name", "")
-                            result = self._set_scene_name(scene_index, name)
-                        elif command_type == "set_scene_color":
-                            scene_index = params.get("scene_index", 0)
-                            color = params.get("color", 0)
-                            result = self._set_scene_color(scene_index, color)
-                        elif command_type == "duplicate_scene":
-                            scene_index = params.get("scene_index", 0)
-                            result = self._duplicate_scene(scene_index)
-                        # Track commands
-                        elif command_type == "delete_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._delete_track(track_index)
-                        elif command_type == "duplicate_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._duplicate_track(track_index)
-                        elif command_type == "set_track_color":
-                            track_index = params.get("track_index", 0)
-                            color = params.get("color", 0)
-                            result = self._set_track_color(track_index, color)
-                        # Device commands
-                        elif command_type == "toggle_device":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._toggle_device(track_index, device_index)
-                        elif command_type == "delete_device":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._delete_device(track_index, device_index)
-                        # Clip commands
-                        elif command_type == "duplicate_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._duplicate_clip(track_index, clip_index)
-                        elif command_type == "set_clip_color":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            color = params.get("color", 0)
-                            result = self._set_clip_color(track_index, clip_index, color)
-                        elif command_type == "set_clip_loop":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            loop_start = params.get("loop_start", 0.0)
-                            loop_end = params.get("loop_end", 4.0)
-                            looping = params.get("looping", True)
-                            result = self._set_clip_loop(track_index, clip_index, loop_start, loop_end, looping)
-                        # Note commands
-                        elif command_type == "remove_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            from_time = params.get("from_time", 0.0)
-                            time_span = params.get("time_span", 4.0)
-                            from_pitch = params.get("from_pitch", 0)
-                            pitch_span = params.get("pitch_span", 128)
-                            result = self._remove_notes(track_index, clip_index, from_time, time_span, from_pitch, pitch_span)
-                        elif command_type == "remove_all_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._remove_all_notes(track_index, clip_index)
-                        elif command_type == "transpose_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            semitones = params.get("semitones", 0)
-                            result = self._transpose_notes(track_index, clip_index, semitones)
-                        # Undo/redo
-                        elif command_type == "undo":
-                            result = self._undo()
-                        elif command_type == "redo":
-                            result = self._redo()
-                        # Return/send track control
-                        elif command_type == "set_send_level":
-                            track_index = params.get("track_index", 0)
-                            send_index = params.get("send_index", 0)
-                            if "level" not in params:
-                                raise ValueError("set_send_level requires 'level' (got keys: %s). "
-                                                 "Silently defaulting would set the send to 0.0 "
-                                                 "and report success." % sorted(params.keys()))
-                            result = self._set_send_level(track_index, send_index, params["level"])
-                        elif command_type == "set_return_volume":
-                            return_index = params.get("return_index", 0)
-                            volume = params.get("volume", 0.85)
-                            result = self._set_return_volume(return_index, volume)
-                        elif command_type == "set_return_pan":
-                            return_index = params.get("return_index", 0)
-                            pan = params.get("pan", 0.0)
-                            result = self._set_return_pan(return_index, pan)
-                        # View control
-                        elif command_type == "focus_view":
-                            view_name = params.get("view_name", "Session")
-                            result = self._focus_view(view_name)
-                        elif command_type == "select_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._select_track(track_index)
-                        elif command_type == "select_scene":
-                            scene_index = params.get("scene_index", 0)
-                            result = self._select_scene(scene_index)
-                        elif command_type == "select_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._select_clip(track_index, clip_index)
-                        # Recording control
-                        elif command_type == "start_recording":
-                            result = self._start_recording()
-                        elif command_type == "stop_recording":
-                            result = self._stop_recording()
-                        elif command_type == "toggle_session_record":
-                            result = self._toggle_session_record()
-                        elif command_type == "toggle_arrangement_record":
-                            result = self._toggle_arrangement_record()
-                        elif command_type == "set_overdub":
-                            enabled = params.get("enabled", False)
-                            result = self._set_overdub(enabled)
-                        elif command_type == "capture_midi":
-                            result = self._capture_midi()
-                        # Arrangement control
-                        elif command_type == "set_arrangement_loop":
-                            start = params.get("start", 0.0)
-                            end = params.get("end", 4.0)
-                            enabled = params.get("enabled", True)
-                            result = self._set_arrangement_loop(start, end, enabled)
-                        elif command_type == "jump_to_time":
-                            time = params.get("time", 0.0)
-                            result = self._jump_to_time(time)
-                        elif command_type == "create_locator":
-                            time = params.get("time", 0.0)
-                            name = params.get("name", "")
-                            result = self._create_locator(time, name)
-                        elif command_type == "delete_locator":
-                            locator_index = params.get("locator_index", 0)
-                            result = self._delete_locator(locator_index)
-                        # Routing control
-                        elif command_type == "set_track_input_routing":
-                            track_index = params.get("track_index", 0)
-                            routing_type = params.get("routing_type", "")
-                            routing_channel = params.get("routing_channel", "")
-                            result = self._set_track_input_routing(track_index, routing_type, routing_channel)
-                        elif command_type == "set_track_output_routing":
-                            track_index = params.get("track_index", 0)
-                            routing_type = params.get("routing_type", "")
-                            routing_channel = params.get("routing_channel", "")
-                            result = self._set_track_output_routing(track_index, routing_type, routing_channel)
-                        # Metronome control
-                        elif command_type == "set_metronome":
-                            enabled = params.get("enabled", True)
-                            result = self._set_metronome(enabled)
-                        # AI Music helpers (clip modifications)
-                        elif command_type == "quantize_clip_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            grid = params.get("grid", 0.25)
-                            result = self._quantize_clip_notes(track_index, clip_index, grid)
-                        elif command_type == "humanize_clip_timing":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            amount = params.get("amount", 0.1)
-                            result = self._humanize_clip_timing(track_index, clip_index, amount)
-                        elif command_type == "humanize_clip_velocity":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            amount = params.get("amount", 0.1)
-                            result = self._humanize_clip_velocity(track_index, clip_index, amount)
-                        elif command_type == "generate_drum_pattern":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            style = params.get("style", "basic")
-                            length = params.get("length", 4.0)
-                            result = self._generate_drum_pattern(track_index, clip_index, style, length)
-                        elif command_type == "generate_bassline":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            root = params.get("root", 36)
-                            scale_type = params.get("scale_type", "minor")
-                            length = params.get("length", 4.0)
-                            result = self._generate_bassline(track_index, clip_index, root, scale_type, length)
-
-                        # ============================================
-                        # Audio Clip Editing
-                        # ============================================
-                        elif command_type == "set_clip_gain":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            gain = params.get("gain", 0.0)  # dB
-                            result = self._set_clip_gain(track_index, clip_index, gain)
-                        elif command_type == "set_clip_pitch":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            pitch = params.get("pitch", 0)  # semitones
-                            result = self._set_clip_pitch(track_index, clip_index, pitch)
-                        elif command_type == "set_clip_warp_mode":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            warp_mode = params.get("warp_mode", "beats")
-                            result = self._set_clip_warp_mode(track_index, clip_index, warp_mode)
-                        elif command_type == "get_clip_warp_info":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._get_clip_warp_info(track_index, clip_index)
-                        elif command_type == "add_warp_marker":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            beat_time = params.get("beat_time", 0.0)
-                            sample_time = params.get("sample_time", None)
-                            result = self._add_warp_marker(track_index, clip_index, beat_time, sample_time)
-                        elif command_type == "delete_warp_marker":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            beat_time = params.get("beat_time", 0.0)
-                            result = self._delete_warp_marker(track_index, clip_index, beat_time)
-
-                        # ============================================
-                        # Clip Automation
-                        # ============================================
-                        elif command_type == "get_clip_automation":
-                            result = self._get_clip_automation(
-                                params.get("track_index", 0), params.get("clip_index", 0),
-                                params.get("parameter_name", ""), params.get("device_index", None),
-                                params.get("samples", 33))
-                        elif command_type == "set_clip_automation":
-                            result = self._set_clip_automation(
-                                params.get("track_index", 0), params.get("clip_index", 0),
-                                params.get("parameter_name", ""), params.get("envelope_data", []),
-                                params.get("device_index", None))
-                        elif command_type == "clear_clip_automation":
-                            result = self._clear_clip_automation(
-                                params.get("track_index", 0), params.get("clip_index", 0),
-                                params.get("parameter_name", ""), params.get("device_index", None))
-
-                        # ============================================
-                        # Group Tracks
-                        # ============================================
-                        elif command_type == "create_group_track":
-                            track_indices = params.get("track_indices", [])
-                            name = params.get("name", "Group")
-                            result = self._create_group_track(track_indices, name)
-                        elif command_type == "ungroup_tracks":
-                            group_track_index = params.get("group_track_index", 0)
-                            result = self._ungroup_tracks(group_track_index)
-                        elif command_type == "fold_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._fold_track(track_index, True)
-                        elif command_type == "unfold_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._fold_track(track_index, False)
-
-                        # ============================================
-                        # Track Monitoring
-                        # ============================================
-                        elif command_type == "set_track_monitoring":
-                            track_index = params.get("track_index", 0)
-                            monitoring = params.get("monitoring", "auto")
-                            result = self._set_track_monitoring(track_index, monitoring)
-                        elif command_type == "get_track_monitoring":
-                            track_index = params.get("track_index", 0)
-                            result = self._get_track_monitoring(track_index)
-
-                        # ============================================
-                        # Device Presets and Rack Chains
-                        # ============================================
-                        elif command_type == "get_device_by_name":
-                            track_index = params.get("track_index", 0)
-                            device_name = params.get("device_name", "")
-                            result = self._get_device_by_name(track_index, device_name)
-                        elif command_type == "load_device_preset":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            preset_uri = params.get("preset_uri", "")
-                            result = self._load_device_preset(track_index, device_index, preset_uri)
-                        elif command_type == "get_rack_chains":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._get_rack_chains(track_index, device_index)
-                        elif command_type == "select_rack_chain":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            chain_index = params.get("chain_index", 0)
-                            result = self._select_rack_chain(track_index, device_index, chain_index)
-
-                        # ============================================
-                        # Groove Pool
-                        # ============================================
-                        elif command_type == "get_groove_pool":
-                            result = self._get_groove_pool()
-                        elif command_type == "apply_groove":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            groove_index = params.get("groove_index", 0)
-                            result = self._apply_groove(track_index, clip_index, groove_index)
-                        elif command_type == "commit_groove":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._commit_groove(track_index, clip_index)
-
-                        # ============================================
-                        # New LOM Features - Clip Launch & Follow
-                        # ============================================
-                        elif command_type == "set_clip_launch_mode":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            mode = params.get("mode", 0)
-                            result = self._set_clip_launch_mode(track_index, clip_index, mode)
-                        elif command_type == "set_clip_launch_quantization":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            quantization = params.get("quantization", 0)
-                            result = self._set_clip_launch_quantization(track_index, clip_index, quantization)
-                        elif command_type == "set_clip_follow_action":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            action_a = params.get("action_a", None)
-                            action_b = params.get("action_b", None)
-                            chance = params.get("chance", None)
-                            time = params.get("time", None)
-                            result = self._set_clip_follow_action(track_index, clip_index, action_a, action_b, chance, time)
-
-                        # ============================================
-                        # Crossfader
-                        # ============================================
-                        elif command_type == "set_crossfader":
-                            value = params.get("value", 0.5)
-                            result = self._set_crossfader(value)
-                        elif command_type == "set_track_crossfade_assign":
-                            track_index = params.get("track_index", 0)
-                            assign = params.get("assign", 1)
-                            result = self._set_track_crossfade_assign(track_index, assign)
-
-                        # ============================================
-                        # Song Properties
-                        # ============================================
-                        elif command_type == "set_swing_amount":
-                            amount = params.get("amount", 0.0)
-                            result = self._set_swing_amount(amount)
-                        elif command_type == "set_song_root_note":
-                            root_note = params.get("root_note", 0)
-                            result = self._set_song_root_note(root_note)
-
-                        # ============================================
-                        # Audio Clip Properties
-                        # ============================================
-                        elif command_type == "set_clip_ram_mode":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            enabled = params.get("enabled", False)
-                            result = self._set_clip_ram_mode(track_index, clip_index, enabled)
-
-                        # ============================================
-                        # View Settings
-                        # ============================================
-                        elif command_type == "set_follow_mode":
-                            enabled = params.get("enabled", True)
-                            result = self._set_follow_mode(enabled)
-                        elif command_type == "set_draw_mode":
-                            enabled = params.get("enabled", True)
-                            result = self._set_draw_mode(enabled)
-                        elif command_type == "set_grid_quantization":
-                            quantization = params.get("quantization", 4)
-                            triplet = params.get("triplet", False)
-                            result = self._set_grid_quantization(quantization, triplet)
-
-                        # ============================================
-                        # Drum Rack
-                        # ============================================
-                        elif command_type == "set_drum_rack_pad_mute":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            note = params.get("note", 36)
-                            mute = params.get("mute", False)
-                            result = self._set_drum_rack_pad_mute(track_index, device_index, note, mute)
-                        elif command_type == "set_drum_rack_pad_solo":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            note = params.get("note", 36)
-                            solo = params.get("solo", False)
-                            result = self._set_drum_rack_pad_solo(track_index, device_index, note, solo)
-                        elif command_type == "set_rack_macro":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            macro_index = params.get("macro_index", 0)
-                            value = params.get("value", 0.0)
-                            result = self._set_rack_macro(track_index, device_index, macro_index, value)
-
-                        # ============================================
-                        # Punch & Arrangement
-                        # ============================================
-                        elif command_type == "set_punch_in":
-                            enabled = params.get("enabled", False)
-                            result = self._set_punch_in(enabled)
-                        elif command_type == "set_punch_out":
-                            enabled = params.get("enabled", False)
-                            result = self._set_punch_out(enabled)
-                        elif command_type == "trigger_back_to_arrangement":
-                            result = self._trigger_back_to_arrangement()
-
-                        # ============================================
-                        # Additional LOM Features
-                        # ============================================
-                        elif command_type == "set_track_delay":
-                            track_index = params.get("track_index", 0)
-                            delay_ms = params.get("delay_ms", 0)
-                            result = self._set_track_delay(track_index, delay_ms)
-                        elif command_type == "set_clip_start_marker":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            position = params.get("position", 0)
-                            result = self._set_clip_start_marker(track_index, clip_index, position)
-                        elif command_type == "set_clip_end_marker":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            position = params.get("position", 0)
-                            result = self._set_clip_end_marker(track_index, clip_index, position)
-                        elif command_type == "set_clip_velocity_amount":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            amount = params.get("amount", 1.0)
-                            result = self._set_clip_velocity_amount(track_index, clip_index, amount)
-                        elif command_type == "set_clip_trigger_quantization":
-                            quant = params.get("quantization", 4)
-                            result = self._set_clip_trigger_quantization(quant)
-                        elif command_type == "set_midi_recording_quantization":
-                            quant = params.get("quantization", 0)
-                            result = self._set_midi_recording_quantization(quant)
-                        elif command_type == "set_groove_amount":
-                            amount = params.get("amount", 1.0)
-                            result = self._set_groove_amount(amount)
-                        elif command_type == "set_exclusive_arm":
-                            enabled = params.get("enabled", True)
-                            result = self._set_exclusive_arm(enabled)
-                        elif command_type == "set_exclusive_solo":
-                            enabled = params.get("enabled", False)
-                            result = self._set_exclusive_solo(enabled)
-                        elif command_type == "continue_playing":
-                            result = self._continue_playing()
-                        elif command_type == "tap_tempo":
-                            result = self._tap_tempo()
-                        elif command_type == "stop_all_clips":
-                            result = self._stop_all_clips()
-                        elif command_type == "set_signature":
-                            numerator = params.get("numerator", 4)
-                            denominator = params.get("denominator", 4)
-                            result = self._set_signature(numerator, denominator)
-                        elif command_type == "set_current_song_time":
-                            time = params.get("time", 0)
-                            result = self._set_current_song_time(time)
-                        elif command_type == "create_return_track":
-                            result = self._create_return_track()
-                        elif command_type == "delete_return_track":
-                            index = params.get("index", 0)
-                            result = self._delete_return_track(index)
-                        elif command_type == "solo_exclusive":
-                            track_index = params.get("track_index", 0)
-                            result = self._solo_exclusive(track_index)
-                        elif command_type == "unsolo_all":
-                            result = self._unsolo_all()
-                        elif command_type == "unmute_all":
-                            result = self._unmute_all()
-                        elif command_type == "unarm_all":
-                            result = self._unarm_all()
-                        elif command_type == "freeze_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._freeze_track(track_index)
-                        elif command_type == "flatten_track":
-                            track_index = params.get("track_index", 0)
-                            result = self._flatten_track(track_index)
-                        elif command_type == "move_device":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            new_index = params.get("new_index", 0)
-                            result = self._move_device(track_index, device_index, new_index)
-                        elif command_type == "move_device_left":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._move_device_left(track_index, device_index)
-                        elif command_type == "move_device_right":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._move_device_right(track_index, device_index)
-                        elif command_type == "set_device_collapsed":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            collapsed = params.get("collapsed", False)
-                            result = self._set_device_collapsed(track_index, device_index, collapsed)
-                        elif command_type == "jump_to_cue_point":
-                            index = params.get("index", 0)
-                            result = self._jump_to_cue_point(index)
-                        elif command_type == "jump_to_prev_cue":
-                            result = self._jump_to_prev_cue()
-                        elif command_type == "jump_to_next_cue":
-                            result = self._jump_to_next_cue()
-                        # Detail view
-                        elif command_type == "set_detail_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._set_detail_clip(track_index, clip_index)
-                        elif command_type == "select_device":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            result = self._select_device(track_index, device_index)
-                        # Cue volume
-                        elif command_type == "set_cue_volume":
-                            volume = params.get("volume", 0.85)
-                            result = self._set_cue_volume(volume)
-                        # Audio clip fades
-                        elif command_type == "set_clip_fade_in":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            start = params.get("start", 0)
-                            end = params.get("end", 0)
-                            result = self._set_clip_fade_in(track_index, clip_index, start, end)
-                        elif command_type == "set_clip_fade_out":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            start = params.get("start", 0)
-                            end = params.get("end", 0)
-                            result = self._set_clip_fade_out(track_index, clip_index, start, end)
-                        # Clip time
-                        elif command_type == "set_clip_start_time":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            time = params.get("time", 0)
-                            result = self._set_clip_start_time(track_index, clip_index, time)
-                        elif command_type == "set_clip_end_time":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            time = params.get("time", 0)
-                            result = self._set_clip_end_time(track_index, clip_index, time)
-                        # Automation
-                        elif command_type == "set_session_automation_record":
-                            enabled = params.get("enabled", False)
-                            result = self._set_session_automation_record(enabled)
-                        elif command_type == "set_arrangement_overdub":
-                            enabled = params.get("enabled", False)
-                            result = self._set_arrangement_overdub(enabled)
-                        elif command_type == "re_enable_automation":
-                            result = self._re_enable_automation()
-                        # Drum pad
-                        elif command_type == "set_drum_pad_name":
-                            track_index = params.get("track_index", 0)
-                            device_index = params.get("device_index", 0)
-                            pad_index = params.get("pad_index", 0)
-                            name = params.get("name", "")
-                            result = self._set_drum_pad_name(track_index, device_index, pad_index, name)
-                        # Track
-                        elif command_type == "set_track_implicit_arm":
-                            track_index = params.get("track_index", 0)
-                            enabled = params.get("enabled", False)
-                            result = self._set_track_implicit_arm(track_index, enabled)
-                        # Count in
-                        elif command_type == "set_count_in_duration":
-                            duration = params.get("duration", 0)
-                            result = self._set_count_in_duration(duration)
-                        # Clip operations
-                        elif command_type == "quantize_clip":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            quantize_to = params.get("quantize_to", 0.25)
-                            amount = params.get("amount", 1.0)
-                            result = self._quantize_clip(track_index, clip_index, quantize_to, amount)
-                        elif command_type == "deselect_all_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._deselect_all_notes(track_index, clip_index)
-                        elif command_type == "duplicate_clip_loop":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            result = self._duplicate_clip_loop(track_index, clip_index)
-                        elif command_type == "set_clip_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            notes = params.get("notes", [])
-                            result = self._set_clip_notes(track_index, clip_index, notes)
-                        elif command_type == "move_clip_notes":
-                            track_index = params.get("track_index", 0)
-                            clip_index = params.get("clip_index", 0)
-                            time_delta = params.get("time_delta", 0)
-                            pitch_delta = params.get("pitch_delta", 0)
-                            result = self._move_clip_notes(track_index, clip_index, time_delta, pitch_delta)
-                        # Scrub
-                        elif command_type == "scrub_by":
-                            delta = params.get("delta", 0)
-                            result = self._scrub_by(delta)
-
-                        # Put the result in the queue
+                        result = handler(params)
                         response_queue.put({"status": "success", "result": result})
                     except Exception as e:
                         self.log_message("Error in main thread task: " + str(e))
                         self.log_message(traceback.format_exc())
                         response_queue.put({"status": "error", "message": str(e)})
-                
-                # Schedule the task to run on the main thread
+
                 try:
                     self.schedule_message(0, main_thread_task)
                 except AssertionError:
-                    # If we're already on the main thread, execute directly
                     main_thread_task()
-                
-                # Wait for the response with a timeout
+
                 try:
                     task_response = response_queue.get(timeout=10.0)
                     if task_response.get("status") == "error":
@@ -1397,55 +282,1974 @@ class AbletonAI(ControlSurface):
                 except queue.Empty:
                     response["status"] = "error"
                     response["message"] = "Timeout waiting for operation to complete"
-            elif command_type == "get_browser_item":
-                uri = params.get("uri", None)
-                path = params.get("path", None)
-                response["result"] = self._get_browser_item(uri, path)
-            elif command_type == "get_browser_categories":
-                category_type = params.get("category_type", "all")
-                response["result"] = self._get_browser_categories(category_type)
-            elif command_type == "get_browser_items":
-                path = params.get("path", "")
-                item_type = params.get("item_type", "all")
-                response["result"] = self._get_browser_items(path, item_type)
-            # Add the new browser commands
-            elif command_type == "get_browser_tree":
-                category_type = params.get("category_type", "all")
-                response["result"] = self.get_browser_tree(category_type)
-            elif command_type == "get_browser_items_at_path":
-                path = params.get("path", "")
-                response["result"] = self.get_browser_items_at_path(path)
-            # Additional browser commands for robustness
-            elif command_type == "browse_path":
-                path = params.get("path", [])
-                response["result"] = self._browse_path(path)
-            elif command_type == "get_browser_children":
-                uri = params.get("uri", "")
-                response["result"] = self._get_browser_children(uri)
-            elif command_type == "search_browser":
-                query = params.get("query", "")
-                category = params.get("category", "all")
-                response["result"] = self._search_browser(query, category)
-            # Master track commands
-            elif command_type == "set_master_volume":
-                volume = params.get("volume", 0.85)
-                response["result"] = self._set_master_volume(volume)
-            elif command_type == "set_master_pan":
-                pan = params.get("pan", 0.0)
-                response["result"] = self._set_master_pan(pan)
-            elif command_type == "get_master_info":
-                response["result"] = self._get_master_info()
-            # Return track commands
-            else:
-                response["status"] = "error"
-                response["message"] = f"Unknown command: {command_type}. Available commands include: get_session_info, get_track_info, set_track_volume, set_track_pan, create_clip, add_notes_to_clip, fire_scene, load_browser_item, etc."
         except Exception as e:
             self.log_message("Error processing command: " + str(e))
             self.log_message(traceback.format_exc())
             response["status"] = "error"
             response["message"] = str(e)
-        
+
         return response
+
+    _DISPATCH = {
+        "browse_path": ("_rd_browse_path", False),
+        "get_all_scenes": ("_rd_get_all_scenes", False),
+        "get_all_track_names": ("_rd_get_all_track_names", False),
+        "get_arrangement_length": ("_rd_get_arrangement_length", False),
+        "get_arrangement_overdub": ("_rd_get_arrangement_overdub", False),
+        "get_audio_clip_file_path": ("_rd_get_audio_clip_file_path", False),
+        "get_available_inputs": ("_rd_get_available_inputs", False),
+        "get_available_outputs": ("_rd_get_available_outputs", False),
+        "get_back_to_arrangement": ("_rd_get_back_to_arrangement", False),
+        "get_browser_children": ("_rd_get_browser_children", False),
+        "get_browser_item": ("_rd_get_browser_item", False),
+        "get_browser_items_at_path": ("_rd_get_browser_items_at_path", False),
+        "get_browser_tree": ("_rd_get_browser_tree", False),
+        "get_can_capture_midi": ("_rd_get_can_capture_midi", False),
+        "get_clip_color": ("_rd_get_clip_color", False),
+        "get_clip_end_time": ("_rd_get_clip_end_time", False),
+        "get_clip_fades": ("_rd_get_clip_fades", False),
+        "get_clip_follow_action": ("_rd_get_clip_follow_action", False),
+        "get_clip_gain": ("_rd_get_clip_gain", False),
+        "get_clip_has_envelopes": ("_rd_get_clip_has_envelopes", False),
+        "get_clip_info": ("_rd_get_clip_info", False),
+        "get_clip_is_playing": ("_rd_get_clip_is_playing", False),
+        "get_clip_launch_mode": ("_rd_get_clip_launch_mode", False),
+        "get_clip_launch_quantization": ("_rd_get_clip_launch_quantization", False),
+        "get_clip_loop": ("_rd_get_clip_loop", False),
+        "get_clip_notes": ("_rd_get_clip_notes", False),
+        "get_clip_pitch": ("_rd_get_clip_pitch", False),
+        "get_clip_playing_position": ("_rd_get_clip_playing_position", False),
+        "get_clip_ram_mode": ("_rd_get_clip_ram_mode", False),
+        "get_clip_start_end_markers": ("_rd_get_clip_start_end_markers", False),
+        "get_clip_start_time": ("_rd_get_clip_start_time", False),
+        "get_clip_trigger_quantization": ("_rd_get_clip_trigger_quantization", False),
+        "get_clip_velocity_amount": ("_rd_get_clip_velocity_amount", False),
+        "get_count_in_duration": ("_rd_get_count_in_duration", False),
+        "get_cpu_load": ("_rd_get_cpu_load", False),
+        "get_crossfader": ("_rd_get_crossfader", False),
+        "get_cue_volume": ("_rd_get_cue_volume", False),
+        "get_current_song_time": ("_rd_get_current_song_time", False),
+        "get_current_view": ("_rd_get_current_view", False),
+        "get_detail_clip": ("_rd_get_detail_clip", False),
+        "get_device_parameters": ("_rd_get_device_parameters", False),
+        "get_device_view_state": ("_rd_get_device_view_state", False),
+        "get_draw_mode": ("_rd_get_draw_mode", False),
+        "get_drum_pad_info": ("_rd_get_drum_pad_info", False),
+        "get_drum_rack_pads": ("_rd_get_drum_rack_pads", False),
+        "get_exclusive_arm": ("_rd_get_exclusive_arm", False),
+        "get_exclusive_solo": ("_rd_get_exclusive_solo", False),
+        "get_follow_mode": ("_rd_get_follow_mode", False),
+        "get_grid_quantization": ("_rd_get_grid_quantization", False),
+        "get_groove_amount": ("_rd_get_groove_amount", False),
+        "get_highlighted_clip_slot": ("_rd_get_highlighted_clip_slot", False),
+        "get_locators": ("_rd_get_locators", False),
+        "get_master_info": ("_rd_get_master_info", False),
+        "get_master_output_meter": ("_rd_get_master_output_meter", False),
+        "get_metronome_state": ("_rd_get_metronome_state", False),
+        "get_midi_recording_quantization": ("_rd_get_midi_recording_quantization", False),
+        "get_notes_in_range": ("_rd_get_notes_in_range", False),
+        "get_playback_position": ("_rd_get_playback_position", False),
+        "get_punch_settings": ("_rd_get_punch_settings", False),
+        "get_rack_macros": ("_rd_get_rack_macros", False),
+        "get_record_mode": ("_rd_get_record_mode", False),
+        "get_return_track_info": ("_rd_get_return_track_info", False),
+        "get_return_tracks": ("_rd_get_return_tracks", False),
+        "get_scale_notes": ("_rd_get_scale_notes", False),
+        "get_scene_color": ("_rd_get_scene_color", False),
+        "get_selected_device": ("_rd_get_selected_device", False),
+        "get_selected_scene": ("_rd_get_selected_scene", False),
+        "get_selected_track": ("_rd_get_selected_track", False),
+        "get_send_level": ("_rd_get_send_level", False),
+        "get_send_pre_post": ("_rd_get_send_pre_post", False),
+        "get_session_automation_record": ("_rd_get_session_automation_record", False),
+        "get_session_info": ("_rd_get_session_info", False),
+        "get_session_path": ("_rd_get_session_path", False),
+        "get_signature": ("_rd_get_signature", False),
+        "get_simpler_parameters": ("_rd_get_simpler_parameters", False),
+        "get_simpler_sample_info": ("_rd_get_simpler_sample_info", False),
+        "get_song_length": ("_rd_get_song_length", False),
+        "get_song_root_note": ("_rd_get_song_root_note", False),
+        "get_song_scale": ("_rd_get_song_scale", False),
+        "get_song_scale_names": ("_rd_get_song_scale_names", False),
+        "get_swing_amount": ("_rd_get_swing_amount", False),
+        "get_track_available_input_types": ("_rd_get_track_available_input_types", False),
+        "get_track_available_output_types": ("_rd_get_track_available_output_types", False),
+        "get_track_capabilities": ("_rd_get_track_capabilities", False),
+        "get_track_color": ("_rd_get_track_color", False),
+        "get_track_crossfade_assign": ("_rd_get_track_crossfade_assign", False),
+        "get_track_delay": ("_rd_get_track_delay", False),
+        "get_track_fired_slot_index": ("_rd_get_track_fired_slot_index", False),
+        "get_track_implicit_arm": ("_rd_get_track_implicit_arm", False),
+        "get_track_info": ("_rd_get_track_info", False),
+        "get_track_input_routing": ("_rd_get_track_input_routing", False),
+        "get_track_is_foldable": ("_rd_get_track_is_foldable", False),
+        "get_track_is_grouped": ("_rd_get_track_is_grouped", False),
+        "get_track_output_meter": ("_rd_get_track_output_meter", False),
+        "get_track_output_routing": ("_rd_get_track_output_routing", False),
+        "get_track_playing_slot_index": ("_rd_get_track_playing_slot_index", False),
+        "get_view_zoom": ("_rd_get_view_zoom", False),
+        "get_warp_markers": ("_rd_get_warp_markers", False),
+        "health_check": ("_rd_health_check", False),
+        "is_session_modified": ("_rd_is_session_modified", False),
+        "search_browser": ("_rd_search_browser", False),
+        "set_master_pan": ("_rd_set_master_pan", False),
+        "set_master_volume": ("_rd_set_master_volume", False),
+        "add_notes_to_clip": ("_wr_add_notes_to_clip", True),
+        "add_notes_with_probability": ("_wr_add_notes_with_probability", True),
+        "add_warp_marker": ("_wr_add_warp_marker", True),
+        "apply_groove": ("_wr_apply_groove", True),
+        "capture_midi": ("_wr_capture_midi", True),
+        "clear_clip_automation": ("_wr_clear_clip_automation", True),
+        "commit_groove": ("_wr_commit_groove", True),
+        "continue_playing": ("_wr_continue_playing", True),
+        "create_audio_track": ("_wr_create_audio_track", True),
+        "create_clip": ("_wr_create_clip", True),
+        "create_group_track": ("_wr_create_group_track", True),
+        "create_locator": ("_wr_create_locator", True),
+        "create_midi_track": ("_wr_create_midi_track", True),
+        "create_return_track": ("_wr_create_return_track", True),
+        "create_scene": ("_wr_create_scene", True),
+        "delete_clip": ("_wr_delete_clip", True),
+        "delete_device": ("_wr_delete_device", True),
+        "delete_locator": ("_wr_delete_locator", True),
+        "delete_return_track": ("_wr_delete_return_track", True),
+        "delete_scene": ("_wr_delete_scene", True),
+        "delete_track": ("_wr_delete_track", True),
+        "delete_warp_marker": ("_wr_delete_warp_marker", True),
+        "deselect_all_notes": ("_wr_deselect_all_notes", True),
+        "duplicate_clip": ("_wr_duplicate_clip", True),
+        "duplicate_clip_loop": ("_wr_duplicate_clip_loop", True),
+        "duplicate_scene": ("_wr_duplicate_scene", True),
+        "duplicate_track": ("_wr_duplicate_track", True),
+        "fire_clip": ("_wr_fire_clip", True),
+        "fire_scene": ("_wr_fire_scene", True),
+        "flatten_track": ("_wr_flatten_track", True),
+        "focus_view": ("_wr_focus_view", True),
+        "fold_track": ("_wr_fold_track", True),
+        "freeze_track": ("_wr_freeze_track", True),
+        "generate_bassline": ("_wr_generate_bassline", True),
+        "generate_drum_pattern": ("_wr_generate_drum_pattern", True),
+        "get_chain_device_parameters": ("_wr_get_chain_device_parameters", True),
+        "get_clip_automation": ("_wr_get_clip_automation", True),
+        "get_clip_warp_info": ("_wr_get_clip_warp_info", True),
+        "get_device_by_name": ("_wr_get_device_by_name", True),
+        "get_groove_pool": ("_wr_get_groove_pool", True),
+        "get_rack_chains": ("_wr_get_rack_chains", True),
+        "get_track_monitoring": ("_wr_get_track_monitoring", True),
+        "humanize_clip_timing": ("_wr_humanize_clip_timing", True),
+        "humanize_clip_velocity": ("_wr_humanize_clip_velocity", True),
+        "jump_to_cue_point": ("_wr_jump_to_cue_point", True),
+        "jump_to_next_cue": ("_wr_jump_to_next_cue", True),
+        "jump_to_prev_cue": ("_wr_jump_to_prev_cue", True),
+        "jump_to_time": ("_wr_jump_to_time", True),
+        "load_browser_item": ("_wr_load_browser_item", True),
+        "load_browser_item_to_return": ("_wr_load_browser_item_to_return", True),
+        "load_device_preset": ("_wr_load_device_preset", True),
+        "move_clip_notes": ("_wr_move_clip_notes", True),
+        "move_device": ("_wr_move_device", True),
+        "move_device_left": ("_wr_move_device_left", True),
+        "move_device_right": ("_wr_move_device_right", True),
+        "quantize_clip": ("_wr_quantize_clip", True),
+        "quantize_clip_notes": ("_wr_quantize_clip_notes", True),
+        "re_enable_automation": ("_wr_re_enable_automation", True),
+        "redo": ("_wr_redo", True),
+        "remove_all_notes": ("_wr_remove_all_notes", True),
+        "remove_notes": ("_wr_remove_notes", True),
+        "scrub_by": ("_wr_scrub_by", True),
+        "select_clip": ("_wr_select_clip", True),
+        "select_device": ("_wr_select_device", True),
+        "select_rack_chain": ("_wr_select_rack_chain", True),
+        "select_scene": ("_wr_select_scene", True),
+        "select_track": ("_wr_select_track", True),
+        "set_arrangement_loop": ("_wr_set_arrangement_loop", True),
+        "set_arrangement_overdub": ("_wr_set_arrangement_overdub", True),
+        "set_chain_device_parameter": ("_wr_set_chain_device_parameter", True),
+        "set_clip_automation": ("_wr_set_clip_automation", True),
+        "set_clip_color": ("_wr_set_clip_color", True),
+        "set_clip_end_marker": ("_wr_set_clip_end_marker", True),
+        "set_clip_end_time": ("_wr_set_clip_end_time", True),
+        "set_clip_fade_in": ("_wr_set_clip_fade_in", True),
+        "set_clip_fade_out": ("_wr_set_clip_fade_out", True),
+        "set_clip_follow_action": ("_wr_set_clip_follow_action", True),
+        "set_clip_gain": ("_wr_set_clip_gain", True),
+        "set_clip_launch_mode": ("_wr_set_clip_launch_mode", True),
+        "set_clip_launch_quantization": ("_wr_set_clip_launch_quantization", True),
+        "set_clip_loop": ("_wr_set_clip_loop", True),
+        "set_clip_name": ("_wr_set_clip_name", True),
+        "set_clip_notes": ("_wr_set_clip_notes", True),
+        "set_clip_pitch": ("_wr_set_clip_pitch", True),
+        "set_clip_ram_mode": ("_wr_set_clip_ram_mode", True),
+        "set_clip_start_marker": ("_wr_set_clip_start_marker", True),
+        "set_clip_start_time": ("_wr_set_clip_start_time", True),
+        "set_clip_trigger_quantization": ("_wr_set_clip_trigger_quantization", True),
+        "set_clip_velocity_amount": ("_wr_set_clip_velocity_amount", True),
+        "set_clip_warp_mode": ("_wr_set_clip_warp_mode", True),
+        "set_count_in_duration": ("_wr_set_count_in_duration", True),
+        "set_crossfader": ("_wr_set_crossfader", True),
+        "set_cue_volume": ("_wr_set_cue_volume", True),
+        "set_current_song_time": ("_wr_set_current_song_time", True),
+        "set_detail_clip": ("_wr_set_detail_clip", True),
+        "set_device_collapsed": ("_wr_set_device_collapsed", True),
+        "set_device_parameter": ("_wr_set_device_parameter", True),
+        "set_draw_mode": ("_wr_set_draw_mode", True),
+        "set_drum_pad_name": ("_wr_set_drum_pad_name", True),
+        "set_drum_rack_pad_mute": ("_wr_set_drum_rack_pad_mute", True),
+        "set_drum_rack_pad_solo": ("_wr_set_drum_rack_pad_solo", True),
+        "set_exclusive_arm": ("_wr_set_exclusive_arm", True),
+        "set_exclusive_solo": ("_wr_set_exclusive_solo", True),
+        "set_follow_mode": ("_wr_set_follow_mode", True),
+        "set_grid_quantization": ("_wr_set_grid_quantization", True),
+        "set_groove_amount": ("_wr_set_groove_amount", True),
+        "set_metronome": ("_wr_set_metronome", True),
+        "set_midi_recording_quantization": ("_wr_set_midi_recording_quantization", True),
+        "set_overdub": ("_wr_set_overdub", True),
+        "set_punch_in": ("_wr_set_punch_in", True),
+        "set_punch_out": ("_wr_set_punch_out", True),
+        "set_rack_macro": ("_wr_set_rack_macro", True),
+        "set_return_pan": ("_wr_set_return_pan", True),
+        "set_return_volume": ("_wr_set_return_volume", True),
+        "set_scene_color": ("_wr_set_scene_color", True),
+        "set_scene_name": ("_wr_set_scene_name", True),
+        "set_send_level": ("_wr_set_send_level", True),
+        "set_session_automation_record": ("_wr_set_session_automation_record", True),
+        "set_signature": ("_wr_set_signature", True),
+        "set_song_root_note": ("_wr_set_song_root_note", True),
+        "set_song_scale": ("_wr_set_song_scale", True),
+        "set_swing_amount": ("_wr_set_swing_amount", True),
+        "set_tempo": ("_wr_set_tempo", True),
+        "set_track_arm": ("_wr_set_track_arm", True),
+        "set_track_color": ("_wr_set_track_color", True),
+        "set_track_crossfade_assign": ("_wr_set_track_crossfade_assign", True),
+        "set_track_delay": ("_wr_set_track_delay", True),
+        "set_track_implicit_arm": ("_wr_set_track_implicit_arm", True),
+        "set_track_input_routing": ("_wr_set_track_input_routing", True),
+        "set_track_monitoring": ("_wr_set_track_monitoring", True),
+        "set_track_mute": ("_wr_set_track_mute", True),
+        "set_track_name": ("_wr_set_track_name", True),
+        "set_track_output_routing": ("_wr_set_track_output_routing", True),
+        "set_track_pan": ("_wr_set_track_pan", True),
+        "set_track_solo": ("_wr_set_track_solo", True),
+        "set_track_volume": ("_wr_set_track_volume", True),
+        "solo_exclusive": ("_wr_solo_exclusive", True),
+        "start_playback": ("_wr_start_playback", True),
+        "start_recording": ("_wr_start_recording", True),
+        "stop_all_clips": ("_wr_stop_all_clips", True),
+        "stop_clip": ("_wr_stop_clip", True),
+        "stop_playback": ("_wr_stop_playback", True),
+        "stop_recording": ("_wr_stop_recording", True),
+        "stop_scene": ("_wr_stop_scene", True),
+        "tap_tempo": ("_wr_tap_tempo", True),
+        "toggle_arrangement_record": ("_wr_toggle_arrangement_record", True),
+        "toggle_device": ("_wr_toggle_device", True),
+        "toggle_session_record": ("_wr_toggle_session_record", True),
+        "transpose_notes": ("_wr_transpose_notes", True),
+        "trigger_back_to_arrangement": ("_wr_trigger_back_to_arrangement", True),
+        "unarm_all": ("_wr_unarm_all", True),
+        "undo": ("_wr_undo", True),
+        "unfold_track": ("_wr_unfold_track", True),
+        "ungroup_tracks": ("_wr_ungroup_tracks", True),
+        "unmute_all": ("_wr_unmute_all", True),
+        "unsolo_all": ("_wr_unsolo_all", True),
+    }
+
+    def _rd_browse_path(self, params):
+        response = {}
+        path = params.get("path", [])
+        response["result"] = self._browse_path(path)
+        return response.get("result")
+
+    def _rd_get_all_scenes(self, params):
+        response = {}
+        response["result"] = self._get_all_scenes()
+        return response.get("result")
+
+    def _rd_get_all_track_names(self, params):
+        response = {}
+        response["result"] = self._get_all_track_names()
+        return response.get("result")
+
+    def _rd_get_arrangement_length(self, params):
+        response = {}
+        response["result"] = self._get_arrangement_length()
+        return response.get("result")
+
+    def _rd_get_arrangement_overdub(self, params):
+        response = {}
+        response["result"] = self._get_arrangement_overdub()
+        return response.get("result")
+
+    def _rd_get_audio_clip_file_path(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_audio_clip_file_path(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_available_inputs(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_available_inputs(track_index)
+        return response.get("result")
+
+    def _rd_get_available_outputs(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_available_outputs(track_index)
+        return response.get("result")
+
+    def _rd_get_back_to_arrangement(self, params):
+        response = {}
+        response["result"] = self._get_back_to_arrangement()
+        return response.get("result")
+
+    def _rd_get_browser_children(self, params):
+        response = {}
+        uri = params.get("uri", "")
+        response["result"] = self._get_browser_children(uri)
+        return response.get("result")
+
+    def _rd_get_browser_item(self, params):
+        response = {}
+        uri = params.get("uri", None)
+        path = params.get("path", None)
+        response["result"] = self._get_browser_item(uri, path)
+        return response.get("result")
+
+    def _rd_get_browser_items_at_path(self, params):
+        response = {}
+        path = params.get("path", "")
+        response["result"] = self.get_browser_items_at_path(path)
+        return response.get("result")
+
+    def _rd_get_browser_tree(self, params):
+        response = {}
+        category_type = params.get("category_type", "all")
+        response["result"] = self.get_browser_tree(category_type)
+        return response.get("result")
+
+    def _rd_get_can_capture_midi(self, params):
+        response = {}
+        response["result"] = self._get_can_capture_midi()
+        return response.get("result")
+
+    def _rd_get_clip_color(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_color(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_end_time(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_end_time(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_fades(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_fades(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_follow_action(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_follow_action(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_gain(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_gain(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_has_envelopes(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_has_envelopes(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_info(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_info(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_is_playing(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_is_playing(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_launch_mode(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_launch_mode(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_launch_quantization(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_launch_quantization(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_loop(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_loop(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_notes(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_notes(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_pitch(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_pitch(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_playing_position(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_playing_position(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_ram_mode(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_ram_mode(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_start_end_markers(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_start_end_markers(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_start_time(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_start_time(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_clip_trigger_quantization(self, params):
+        response = {}
+        response["result"] = self._get_clip_trigger_quantization()
+        return response.get("result")
+
+    def _rd_get_clip_velocity_amount(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_clip_velocity_amount(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_get_count_in_duration(self, params):
+        response = {}
+        response["result"] = self._get_count_in_duration()
+        return response.get("result")
+
+    def _rd_get_cpu_load(self, params):
+        response = {}
+        response["result"] = self._get_cpu_load()
+        return response.get("result")
+
+    def _rd_get_crossfader(self, params):
+        response = {}
+        response["result"] = self._get_crossfader()
+        return response.get("result")
+
+    def _rd_get_cue_volume(self, params):
+        response = {}
+        response["result"] = self._get_cue_volume()
+        return response.get("result")
+
+    def _rd_get_current_song_time(self, params):
+        response = {}
+        response["result"] = self._get_current_song_time()
+        return response.get("result")
+
+    def _rd_get_current_view(self, params):
+        response = {}
+        response["result"] = self._get_current_view()
+        return response.get("result")
+
+    def _rd_get_detail_clip(self, params):
+        response = {}
+        response["result"] = self._get_detail_clip()
+        return response.get("result")
+
+    def _rd_get_device_parameters(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_device_parameters(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_device_view_state(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_device_view_state(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_draw_mode(self, params):
+        response = {}
+        response["result"] = self._get_draw_mode()
+        return response.get("result")
+
+    def _rd_get_drum_pad_info(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        pad_index = params.get("pad_index", 0)
+        response["result"] = self._get_drum_pad_info(track_index, device_index, pad_index)
+        return response.get("result")
+
+    def _rd_get_drum_rack_pads(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_drum_rack_pads(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_exclusive_arm(self, params):
+        response = {}
+        response["result"] = self._get_exclusive_arm()
+        return response.get("result")
+
+    def _rd_get_exclusive_solo(self, params):
+        response = {}
+        response["result"] = self._get_exclusive_solo()
+        return response.get("result")
+
+    def _rd_get_follow_mode(self, params):
+        response = {}
+        response["result"] = self._get_follow_mode()
+        return response.get("result")
+
+    def _rd_get_grid_quantization(self, params):
+        response = {}
+        response["result"] = self._get_grid_quantization()
+        return response.get("result")
+
+    def _rd_get_groove_amount(self, params):
+        response = {}
+        response["result"] = self._get_groove_amount()
+        return response.get("result")
+
+    def _rd_get_highlighted_clip_slot(self, params):
+        response = {}
+        response["result"] = self._get_highlighted_clip_slot()
+        return response.get("result")
+
+    def _rd_get_locators(self, params):
+        response = {}
+        response["result"] = self._get_locators()
+        return response.get("result")
+
+    def _rd_get_master_info(self, params):
+        response = {}
+        response["result"] = self._get_master_info()
+        return response.get("result")
+
+    def _rd_get_master_output_meter(self, params):
+        response = {}
+        response["result"] = self._get_master_output_meter()
+        return response.get("result")
+
+    def _rd_get_metronome_state(self, params):
+        response = {}
+        response["result"] = self._get_metronome_state()
+        return response.get("result")
+
+    def _rd_get_midi_recording_quantization(self, params):
+        response = {}
+        response["result"] = self._get_midi_recording_quantization()
+        return response.get("result")
+
+    def _rd_get_notes_in_range(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        start_time = params.get("start_time", 0)
+        end_time = params.get("end_time", 4)
+        pitch_start = params.get("pitch_start", 0)
+        pitch_end = params.get("pitch_end", 127)
+        response["result"] = self._get_notes_in_range(track_index, clip_index, start_time, end_time, pitch_start, pitch_end)
+        return response.get("result")
+
+    def _rd_get_playback_position(self, params):
+        response = {}
+        response["result"] = self._get_playback_position()
+        return response.get("result")
+
+    def _rd_get_punch_settings(self, params):
+        response = {}
+        response["result"] = self._get_punch_settings()
+        return response.get("result")
+
+    def _rd_get_rack_macros(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_rack_macros(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_record_mode(self, params):
+        response = {}
+        response["result"] = self._get_record_mode()
+        return response.get("result")
+
+    def _rd_get_return_track_info(self, params):
+        response = {}
+        return_index = params.get("return_index", 0)
+        response["result"] = self._get_return_track_info(return_index)
+        return response.get("result")
+
+    def _rd_get_return_tracks(self, params):
+        response = {}
+        response["result"] = self._get_return_tracks()
+        return response.get("result")
+
+    def _rd_get_scale_notes(self, params):
+        response = {}
+        song_root = getattr(self._song, "root_note", 0)
+        song_scale = getattr(self._song, "scale_name", "major")
+        root = params.get("root", song_root)
+        scale_type = params.get("scale_type", str(song_scale).lower().replace(" ", "_"))
+        response["result"] = self._get_scale_notes(root, scale_type)
+        return response.get("result")
+
+    def _rd_get_scene_color(self, params):
+        response = {}
+        scene_index = params.get("scene_index", 0)
+        response["result"] = self._get_scene_color(scene_index)
+        return response.get("result")
+
+    def _rd_get_selected_device(self, params):
+        response = {}
+        response["result"] = self._get_selected_device()
+        return response.get("result")
+
+    def _rd_get_selected_scene(self, params):
+        response = {}
+        response["result"] = self._get_selected_scene()
+        return response.get("result")
+
+    def _rd_get_selected_track(self, params):
+        response = {}
+        response["result"] = self._get_selected_track()
+        return response.get("result")
+
+    def _rd_get_send_level(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        send_index = params.get("send_index", 0)
+        response["result"] = self._get_send_level(track_index, send_index)
+        return response.get("result")
+
+    def _rd_get_send_pre_post(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        send_index = params.get("send_index", 0)
+        response["result"] = self._get_send_pre_post(track_index, send_index)
+        return response.get("result")
+
+    def _rd_get_session_automation_record(self, params):
+        response = {}
+        response["result"] = self._get_session_automation_record()
+        return response.get("result")
+
+    def _rd_get_session_info(self, params):
+        response = {}
+        response["result"] = self._get_session_info()
+        return response.get("result")
+
+    def _rd_get_session_path(self, params):
+        response = {}
+        response["result"] = self._get_session_path()
+        return response.get("result")
+
+    def _rd_get_signature(self, params):
+        response = {}
+        response["result"] = self._get_signature()
+        return response.get("result")
+
+    def _rd_get_simpler_parameters(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_simpler_parameters(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_simpler_sample_info(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        response["result"] = self._get_simpler_sample_info(track_index, device_index)
+        return response.get("result")
+
+    def _rd_get_song_length(self, params):
+        response = {}
+        response["result"] = self._get_song_length()
+        return response.get("result")
+
+    def _rd_get_song_root_note(self, params):
+        response = {}
+        response["result"] = self._get_song_root_note()
+        return response.get("result")
+
+    def _rd_get_song_scale(self, params):
+        response = {}
+        response["result"] = self._get_song_scale()
+        return response.get("result")
+
+    def _rd_get_song_scale_names(self, params):
+        response = {}
+        response["result"] = self._get_song_scale_names()
+        return response.get("result")
+
+    def _rd_get_swing_amount(self, params):
+        response = {}
+        response["result"] = self._get_swing_amount()
+        return response.get("result")
+
+    def _rd_get_track_available_input_types(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_available_input_types(track_index)
+        return response.get("result")
+
+    def _rd_get_track_available_output_types(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_available_output_types(track_index)
+        return response.get("result")
+
+    def _rd_get_track_capabilities(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_capabilities(track_index)
+        return response.get("result")
+
+    def _rd_get_track_color(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_color(track_index)
+        return response.get("result")
+
+    def _rd_get_track_crossfade_assign(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_crossfade_assign(track_index)
+        return response.get("result")
+
+    def _rd_get_track_delay(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_delay(track_index)
+        return response.get("result")
+
+    def _rd_get_track_fired_slot_index(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_fired_slot_index(track_index)
+        return response.get("result")
+
+    def _rd_get_track_implicit_arm(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_implicit_arm(track_index)
+        return response.get("result")
+
+    def _rd_get_track_info(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_info(track_index)
+        return response.get("result")
+
+    def _rd_get_track_input_routing(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_input_routing(track_index)
+        return response.get("result")
+
+    def _rd_get_track_is_foldable(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_is_foldable(track_index)
+        return response.get("result")
+
+    def _rd_get_track_is_grouped(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_is_grouped(track_index)
+        return response.get("result")
+
+    def _rd_get_track_output_meter(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_output_meter(track_index)
+        return response.get("result")
+
+    def _rd_get_track_output_routing(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_output_routing(track_index)
+        return response.get("result")
+
+    def _rd_get_track_playing_slot_index(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        response["result"] = self._get_track_playing_slot_index(track_index)
+        return response.get("result")
+
+    def _rd_get_view_zoom(self, params):
+        response = {}
+        response["result"] = self._get_view_zoom()
+        return response.get("result")
+
+    def _rd_get_warp_markers(self, params):
+        response = {}
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        response["result"] = self._get_warp_markers(track_index, clip_index)
+        return response.get("result")
+
+    def _rd_health_check(self, params):
+        response = {}
+        response["result"] = self._health_check()
+        return response.get("result")
+
+    def _rd_is_session_modified(self, params):
+        response = {}
+        response["result"] = self._is_session_modified()
+        return response.get("result")
+
+    def _rd_search_browser(self, params):
+        response = {}
+        query = params.get("query", "")
+        category = params.get("category", "all")
+        response["result"] = self._search_browser(query, category)
+        return response.get("result")
+
+    def _rd_set_master_pan(self, params):
+        response = {}
+        pan = params.get("pan", 0.0)
+        response["result"] = self._set_master_pan(pan)
+        return response.get("result")
+
+    def _rd_set_master_volume(self, params):
+        response = {}
+        volume = params.get("volume", 0.85)
+        response["result"] = self._set_master_volume(volume)
+        return response.get("result")
+
+    def _wr_add_notes_to_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        notes = params.get("notes", [])
+        result = self._add_notes_to_clip(track_index, clip_index, notes)
+        return result
+
+    def _wr_add_notes_with_probability(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        notes = params.get("notes", [])
+        replace = params.get("replace", True)
+        result = self._add_notes_with_probability(track_index, clip_index, notes, replace)
+        return result
+
+    def _wr_add_warp_marker(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        beat_time = params.get("beat_time", 0.0)
+        sample_time = params.get("sample_time", None)
+        result = self._add_warp_marker(track_index, clip_index, beat_time, sample_time)
+        return result
+
+    def _wr_apply_groove(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        groove_index = params.get("groove_index", 0)
+        result = self._apply_groove(track_index, clip_index, groove_index)
+        return result
+
+    def _wr_capture_midi(self, params):
+        result = None
+        result = self._capture_midi()
+        return result
+
+    def _wr_clear_clip_automation(self, params):
+        result = None
+        result = self._clear_clip_automation(
+            params.get("track_index", 0), params.get("clip_index", 0),
+            params.get("parameter_name", ""), params.get("device_index", None))
+        return result
+
+    def _wr_commit_groove(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._commit_groove(track_index, clip_index)
+        return result
+
+    def _wr_continue_playing(self, params):
+        result = None
+        result = self._continue_playing()
+        return result
+
+    def _wr_create_audio_track(self, params):
+        result = None
+        index = params.get("index", -1)
+        result = self._create_audio_track(index)
+        return result
+
+    def _wr_create_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        length = params.get("length", 4.0)
+        result = self._create_clip(track_index, clip_index, length)
+        return result
+
+    def _wr_create_group_track(self, params):
+        result = None
+        track_indices = params.get("track_indices", [])
+        name = params.get("name", "Group")
+        result = self._create_group_track(track_indices, name)
+        return result
+
+    def _wr_create_locator(self, params):
+        result = None
+        time = params.get("time", 0.0)
+        name = params.get("name", "")
+        result = self._create_locator(time, name)
+        return result
+
+    def _wr_create_midi_track(self, params):
+        result = None
+        index = params.get("index", -1)
+        result = self._create_midi_track(index)
+        return result
+
+    def _wr_create_return_track(self, params):
+        result = None
+        result = self._create_return_track()
+        return result
+
+    def _wr_create_scene(self, params):
+        result = None
+        index = params.get("index", -1)
+        result = self._create_scene(index)
+        return result
+
+    def _wr_delete_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._delete_clip(track_index, clip_index)
+        return result
+
+    def _wr_delete_device(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._delete_device(track_index, device_index)
+        return result
+
+    def _wr_delete_locator(self, params):
+        result = None
+        locator_index = params.get("locator_index", 0)
+        result = self._delete_locator(locator_index)
+        return result
+
+    def _wr_delete_return_track(self, params):
+        result = None
+        index = params.get("index", 0)
+        result = self._delete_return_track(index)
+        return result
+
+    def _wr_delete_scene(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        result = self._delete_scene(scene_index)
+        return result
+
+    def _wr_delete_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._delete_track(track_index)
+        return result
+
+    def _wr_delete_warp_marker(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        beat_time = params.get("beat_time", 0.0)
+        result = self._delete_warp_marker(track_index, clip_index, beat_time)
+        return result
+
+    def _wr_deselect_all_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._deselect_all_notes(track_index, clip_index)
+        return result
+
+    def _wr_duplicate_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._duplicate_clip(track_index, clip_index)
+        return result
+
+    def _wr_duplicate_clip_loop(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._duplicate_clip_loop(track_index, clip_index)
+        return result
+
+    def _wr_duplicate_scene(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        result = self._duplicate_scene(scene_index)
+        return result
+
+    def _wr_duplicate_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._duplicate_track(track_index)
+        return result
+
+    def _wr_fire_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._fire_clip(track_index, clip_index)
+        return result
+
+    def _wr_fire_scene(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        result = self._fire_scene(scene_index)
+        return result
+
+    def _wr_flatten_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._flatten_track(track_index)
+        return result
+
+    def _wr_focus_view(self, params):
+        result = None
+        view_name = params.get("view_name", "Session")
+        result = self._focus_view(view_name)
+        return result
+
+    def _wr_fold_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._fold_track(track_index, True)
+        return result
+
+    def _wr_freeze_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._freeze_track(track_index)
+        return result
+
+    def _wr_generate_bassline(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        root = params.get("root", 36)
+        scale_type = params.get("scale_type", "minor")
+        length = params.get("length", 4.0)
+        result = self._generate_bassline(track_index, clip_index, root, scale_type, length)
+        return result
+
+    def _wr_generate_drum_pattern(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        style = params.get("style", "basic")
+        length = params.get("length", 4.0)
+        result = self._generate_drum_pattern(track_index, clip_index, style, length)
+        return result
+
+    def _wr_get_chain_device_parameters(self, params):
+        result = None
+        result = self._get_chain_device_parameters(
+            params.get("track_index", 0), params.get("device_index", 0),
+            params.get("chain_index", 0), params.get("chain_device_index", 0))
+        return result
+
+    def _wr_get_clip_automation(self, params):
+        result = None
+        result = self._get_clip_automation(
+            params.get("track_index", 0), params.get("clip_index", 0),
+            params.get("parameter_name", ""), params.get("device_index", None),
+            params.get("samples", 33))
+        return result
+
+    def _wr_get_clip_warp_info(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._get_clip_warp_info(track_index, clip_index)
+        return result
+
+    def _wr_get_device_by_name(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_name = params.get("device_name", "")
+        result = self._get_device_by_name(track_index, device_name)
+        return result
+
+    def _wr_get_groove_pool(self, params):
+        result = None
+        result = self._get_groove_pool()
+        return result
+
+    def _wr_get_rack_chains(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._get_rack_chains(track_index, device_index)
+        return result
+
+    def _wr_get_track_monitoring(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._get_track_monitoring(track_index)
+        return result
+
+    def _wr_humanize_clip_timing(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        amount = params.get("amount", 0.1)
+        result = self._humanize_clip_timing(track_index, clip_index, amount)
+        return result
+
+    def _wr_humanize_clip_velocity(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        amount = params.get("amount", 0.1)
+        result = self._humanize_clip_velocity(track_index, clip_index, amount)
+        return result
+
+    def _wr_jump_to_cue_point(self, params):
+        result = None
+        index = params.get("index", 0)
+        result = self._jump_to_cue_point(index)
+        return result
+
+    def _wr_jump_to_next_cue(self, params):
+        result = None
+        result = self._jump_to_next_cue()
+        return result
+
+    def _wr_jump_to_prev_cue(self, params):
+        result = None
+        result = self._jump_to_prev_cue()
+        return result
+
+    def _wr_jump_to_time(self, params):
+        result = None
+        time = params.get("time", 0.0)
+        result = self._jump_to_time(time)
+        return result
+
+    def _wr_load_browser_item(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        item_uri = params.get("item_uri", "")
+        result = self._load_browser_item(track_index, item_uri)
+        return result
+
+    def _wr_load_browser_item_to_return(self, params):
+        result = None
+        return_index = params.get("return_index", 0)
+        item_uri = params.get("item_uri", "")
+        result = self._load_browser_item_to_return(return_index, item_uri)
+        return result
+
+    def _wr_load_device_preset(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        preset_uri = params.get("preset_uri", "")
+        result = self._load_device_preset(track_index, device_index, preset_uri)
+        return result
+
+    def _wr_move_clip_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        time_delta = params.get("time_delta", 0)
+        pitch_delta = params.get("pitch_delta", 0)
+        result = self._move_clip_notes(track_index, clip_index, time_delta, pitch_delta)
+        return result
+
+    def _wr_move_device(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        new_index = params.get("new_index", 0)
+        result = self._move_device(track_index, device_index, new_index)
+        return result
+
+    def _wr_move_device_left(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._move_device_left(track_index, device_index)
+        return result
+
+    def _wr_move_device_right(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._move_device_right(track_index, device_index)
+        return result
+
+    def _wr_quantize_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        quantize_to = params.get("quantize_to", 0.25)
+        amount = params.get("amount", 1.0)
+        result = self._quantize_clip(track_index, clip_index, quantize_to, amount)
+        return result
+
+    def _wr_quantize_clip_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        grid = params.get("grid", 0.25)
+        result = self._quantize_clip_notes(track_index, clip_index, grid)
+        return result
+
+    def _wr_re_enable_automation(self, params):
+        result = None
+        result = self._re_enable_automation()
+        return result
+
+    def _wr_redo(self, params):
+        result = None
+        result = self._redo()
+        return result
+
+    def _wr_remove_all_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._remove_all_notes(track_index, clip_index)
+        return result
+
+    def _wr_remove_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        from_time = params.get("from_time", 0.0)
+        time_span = params.get("time_span", 4.0)
+        from_pitch = params.get("from_pitch", 0)
+        pitch_span = params.get("pitch_span", 128)
+        result = self._remove_notes(track_index, clip_index, from_time, time_span, from_pitch, pitch_span)
+        return result
+
+    def _wr_scrub_by(self, params):
+        result = None
+        delta = params.get("delta", 0)
+        result = self._scrub_by(delta)
+        return result
+
+    def _wr_select_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._select_clip(track_index, clip_index)
+        return result
+
+    def _wr_select_device(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._select_device(track_index, device_index)
+        return result
+
+    def _wr_select_rack_chain(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        chain_index = params.get("chain_index", 0)
+        result = self._select_rack_chain(track_index, device_index, chain_index)
+        return result
+
+    def _wr_select_scene(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        result = self._select_scene(scene_index)
+        return result
+
+    def _wr_select_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._select_track(track_index)
+        return result
+
+    def _wr_set_arrangement_loop(self, params):
+        result = None
+        start = params.get("start", 0.0)
+        end = params.get("end", 4.0)
+        enabled = params.get("enabled", True)
+        result = self._set_arrangement_loop(start, end, enabled)
+        return result
+
+    def _wr_set_arrangement_overdub(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_arrangement_overdub(enabled)
+        return result
+
+    def _wr_set_chain_device_parameter(self, params):
+        result = None
+        result = self._set_chain_device_parameter(
+            params.get("track_index", 0), params.get("device_index", 0),
+            params.get("chain_index", 0), params.get("chain_device_index", 0),
+            params.get("parameter_index", None), params.get("parameter_name", None),
+            params.get("value", 0.0))
+        return result
+
+    def _wr_set_clip_automation(self, params):
+        result = None
+        result = self._set_clip_automation(
+            params.get("track_index", 0), params.get("clip_index", 0),
+            params.get("parameter_name", ""), params.get("envelope_data", []),
+            params.get("device_index", None))
+        return result
+
+    def _wr_set_clip_color(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        color = params.get("color", 0)
+        result = self._set_clip_color(track_index, clip_index, color)
+        return result
+
+    def _wr_set_clip_end_marker(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        position = params.get("position", 0)
+        result = self._set_clip_end_marker(track_index, clip_index, position)
+        return result
+
+    def _wr_set_clip_end_time(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        time = params.get("time", 0)
+        result = self._set_clip_end_time(track_index, clip_index, time)
+        return result
+
+    def _wr_set_clip_fade_in(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        start = params.get("start", 0)
+        end = params.get("end", 0)
+        result = self._set_clip_fade_in(track_index, clip_index, start, end)
+        return result
+
+    def _wr_set_clip_fade_out(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        start = params.get("start", 0)
+        end = params.get("end", 0)
+        result = self._set_clip_fade_out(track_index, clip_index, start, end)
+        return result
+
+    def _wr_set_clip_follow_action(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        action_a = params.get("action_a", None)
+        action_b = params.get("action_b", None)
+        chance = params.get("chance", None)
+        time = params.get("time", None)
+        result = self._set_clip_follow_action(track_index, clip_index, action_a, action_b, chance, time)
+        return result
+
+    def _wr_set_clip_gain(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        gain = params.get("gain", 0.0)  # dB
+        result = self._set_clip_gain(track_index, clip_index, gain)
+        return result
+
+    def _wr_set_clip_launch_mode(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        mode = params.get("mode", 0)
+        result = self._set_clip_launch_mode(track_index, clip_index, mode)
+        return result
+
+    def _wr_set_clip_launch_quantization(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        quantization = params.get("quantization", 0)
+        result = self._set_clip_launch_quantization(track_index, clip_index, quantization)
+        return result
+
+    def _wr_set_clip_loop(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        loop_start = params.get("loop_start", 0.0)
+        loop_end = params.get("loop_end", 4.0)
+        looping = params.get("looping", True)
+        result = self._set_clip_loop(track_index, clip_index, loop_start, loop_end, looping)
+        return result
+
+    def _wr_set_clip_name(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        name = params.get("name", "")
+        result = self._set_clip_name(track_index, clip_index, name)
+        return result
+
+    def _wr_set_clip_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        notes = params.get("notes", [])
+        result = self._set_clip_notes(track_index, clip_index, notes)
+        return result
+
+    def _wr_set_clip_pitch(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        pitch = params.get("pitch", 0)  # semitones
+        result = self._set_clip_pitch(track_index, clip_index, pitch)
+        return result
+
+    def _wr_set_clip_ram_mode(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        enabled = params.get("enabled", False)
+        result = self._set_clip_ram_mode(track_index, clip_index, enabled)
+        return result
+
+    def _wr_set_clip_start_marker(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        position = params.get("position", 0)
+        result = self._set_clip_start_marker(track_index, clip_index, position)
+        return result
+
+    def _wr_set_clip_start_time(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        time = params.get("time", 0)
+        result = self._set_clip_start_time(track_index, clip_index, time)
+        return result
+
+    def _wr_set_clip_trigger_quantization(self, params):
+        result = None
+        quant = params.get("quantization", 4)
+        result = self._set_clip_trigger_quantization(quant)
+        return result
+
+    def _wr_set_clip_velocity_amount(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        amount = params.get("amount", 1.0)
+        result = self._set_clip_velocity_amount(track_index, clip_index, amount)
+        return result
+
+    def _wr_set_clip_warp_mode(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        warp_mode = params.get("warp_mode", "beats")
+        result = self._set_clip_warp_mode(track_index, clip_index, warp_mode)
+        return result
+
+    def _wr_set_count_in_duration(self, params):
+        result = None
+        duration = params.get("duration", 0)
+        result = self._set_count_in_duration(duration)
+        return result
+
+    def _wr_set_crossfader(self, params):
+        result = None
+        value = params.get("value", 0.5)
+        result = self._set_crossfader(value)
+        return result
+
+    def _wr_set_cue_volume(self, params):
+        result = None
+        volume = params.get("volume", 0.85)
+        result = self._set_cue_volume(volume)
+        return result
+
+    def _wr_set_current_song_time(self, params):
+        result = None
+        time = params.get("time", 0)
+        result = self._set_current_song_time(time)
+        return result
+
+    def _wr_set_detail_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._set_detail_clip(track_index, clip_index)
+        return result
+
+    def _wr_set_device_collapsed(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        collapsed = params.get("collapsed", False)
+        result = self._set_device_collapsed(track_index, device_index, collapsed)
+        return result
+
+    def _wr_set_device_parameter(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        parameter_index = params.get("parameter_index", 0)
+        value = params.get("value", 0.0)
+        result = self._set_device_parameter(track_index, device_index, parameter_index, value)
+        return result
+
+    def _wr_set_draw_mode(self, params):
+        result = None
+        enabled = params.get("enabled", True)
+        result = self._set_draw_mode(enabled)
+        return result
+
+    def _wr_set_drum_pad_name(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        pad_index = params.get("pad_index", 0)
+        name = params.get("name", "")
+        result = self._set_drum_pad_name(track_index, device_index, pad_index, name)
+        return result
+
+    def _wr_set_drum_rack_pad_mute(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        note = params.get("note", 36)
+        mute = params.get("mute", False)
+        result = self._set_drum_rack_pad_mute(track_index, device_index, note, mute)
+        return result
+
+    def _wr_set_drum_rack_pad_solo(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        note = params.get("note", 36)
+        solo = params.get("solo", False)
+        result = self._set_drum_rack_pad_solo(track_index, device_index, note, solo)
+        return result
+
+    def _wr_set_exclusive_arm(self, params):
+        result = None
+        enabled = params.get("enabled", True)
+        result = self._set_exclusive_arm(enabled)
+        return result
+
+    def _wr_set_exclusive_solo(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_exclusive_solo(enabled)
+        return result
+
+    def _wr_set_follow_mode(self, params):
+        result = None
+        enabled = params.get("enabled", True)
+        result = self._set_follow_mode(enabled)
+        return result
+
+    def _wr_set_grid_quantization(self, params):
+        result = None
+        quantization = params.get("quantization", 4)
+        triplet = params.get("triplet", False)
+        result = self._set_grid_quantization(quantization, triplet)
+        return result
+
+    def _wr_set_groove_amount(self, params):
+        result = None
+        amount = params.get("amount", 1.0)
+        result = self._set_groove_amount(amount)
+        return result
+
+    def _wr_set_metronome(self, params):
+        result = None
+        enabled = params.get("enabled", True)
+        result = self._set_metronome(enabled)
+        return result
+
+    def _wr_set_midi_recording_quantization(self, params):
+        result = None
+        quant = params.get("quantization", 0)
+        result = self._set_midi_recording_quantization(quant)
+        return result
+
+    def _wr_set_overdub(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_overdub(enabled)
+        return result
+
+    def _wr_set_punch_in(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_punch_in(enabled)
+        return result
+
+    def _wr_set_punch_out(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_punch_out(enabled)
+        return result
+
+    def _wr_set_rack_macro(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        macro_index = params.get("macro_index", 0)
+        value = params.get("value", 0.0)
+        result = self._set_rack_macro(track_index, device_index, macro_index, value)
+        return result
+
+    def _wr_set_return_pan(self, params):
+        result = None
+        return_index = params.get("return_index", 0)
+        pan = params.get("pan", 0.0)
+        result = self._set_return_pan(return_index, pan)
+        return result
+
+    def _wr_set_return_volume(self, params):
+        result = None
+        return_index = params.get("return_index", 0)
+        volume = params.get("volume", 0.85)
+        result = self._set_return_volume(return_index, volume)
+        return result
+
+    def _wr_set_scene_color(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        color = params.get("color", 0)
+        result = self._set_scene_color(scene_index, color)
+        return result
+
+    def _wr_set_scene_name(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        name = params.get("name", "")
+        result = self._set_scene_name(scene_index, name)
+        return result
+
+    def _wr_set_send_level(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        send_index = params.get("send_index", 0)
+        if "level" not in params:
+            raise ValueError("set_send_level requires 'level' (got keys: %s). "
+                             "Silently defaulting would set the send to 0.0 "
+                             "and report success." % sorted(params.keys()))
+        result = self._set_send_level(track_index, send_index, params["level"])
+        return result
+
+    def _wr_set_session_automation_record(self, params):
+        result = None
+        enabled = params.get("enabled", False)
+        result = self._set_session_automation_record(enabled)
+        return result
+
+    def _wr_set_signature(self, params):
+        result = None
+        numerator = params.get("numerator", 4)
+        denominator = params.get("denominator", 4)
+        result = self._set_signature(numerator, denominator)
+        return result
+
+    def _wr_set_song_root_note(self, params):
+        result = None
+        root_note = params.get("root_note", 0)
+        result = self._set_song_root_note(root_note)
+        return result
+
+    def _wr_set_song_scale(self, params):
+        result = None
+        result = self._set_song_scale(params.get("scale_name", None))
+        return result
+
+    def _wr_set_swing_amount(self, params):
+        result = None
+        amount = params.get("amount", 0.0)
+        result = self._set_swing_amount(amount)
+        return result
+
+    def _wr_set_tempo(self, params):
+        result = None
+        tempo = params.get("tempo", 120.0)
+        result = self._set_tempo(tempo)
+        return result
+
+    def _wr_set_track_arm(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        arm = params.get("arm", False)
+        result = self._set_track_arm(track_index, arm)
+        return result
+
+    def _wr_set_track_color(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        color = params.get("color", 0)
+        result = self._set_track_color(track_index, color)
+        return result
+
+    def _wr_set_track_crossfade_assign(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        assign = params.get("assign", 1)
+        result = self._set_track_crossfade_assign(track_index, assign)
+        return result
+
+    def _wr_set_track_delay(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        delay_ms = params.get("delay_ms", 0)
+        result = self._set_track_delay(track_index, delay_ms)
+        return result
+
+    def _wr_set_track_implicit_arm(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        enabled = params.get("enabled", False)
+        result = self._set_track_implicit_arm(track_index, enabled)
+        return result
+
+    def _wr_set_track_input_routing(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        routing_type = params.get("routing_type", "")
+        routing_channel = params.get("routing_channel", "")
+        result = self._set_track_input_routing(track_index, routing_type, routing_channel)
+        return result
+
+    def _wr_set_track_monitoring(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        monitoring = params.get("monitoring", "auto")
+        result = self._set_track_monitoring(track_index, monitoring)
+        return result
+
+    def _wr_set_track_mute(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        mute = params.get("mute", False)
+        result = self._set_track_mute(track_index, mute)
+        return result
+
+    def _wr_set_track_name(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        name = params.get("name", "")
+        result = self._set_track_name(track_index, name)
+        return result
+
+    def _wr_set_track_output_routing(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        routing_type = params.get("routing_type", "")
+        routing_channel = params.get("routing_channel", "")
+        result = self._set_track_output_routing(track_index, routing_type, routing_channel)
+        return result
+
+    def _wr_set_track_pan(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        if "pan" not in params:
+            raise ValueError("set_track_pan requires 'pan' (got keys: %s). "
+                             "Silently defaulting would centre the track and report success."
+                             % sorted(params.keys()))
+        result = self._set_track_pan(track_index, params["pan"])
+        return result
+
+    def _wr_set_track_solo(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        solo = params.get("solo", False)
+        result = self._set_track_solo(track_index, solo)
+        return result
+
+    def _wr_set_track_volume(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        if "volume" not in params:
+            raise ValueError("set_track_volume requires 'volume' (got keys: %s). "
+                             "Silently defaulting would set 0.85 and report success."
+                             % sorted(params.keys()))
+        result = self._set_track_volume(track_index, params["volume"])
+        return result
+
+    def _wr_solo_exclusive(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._solo_exclusive(track_index)
+        return result
+
+    def _wr_start_playback(self, params):
+        result = None
+        result = self._start_playback()
+        return result
+
+    def _wr_start_recording(self, params):
+        result = None
+        result = self._start_recording()
+        return result
+
+    def _wr_stop_all_clips(self, params):
+        result = None
+        result = self._stop_all_clips()
+        return result
+
+    def _wr_stop_clip(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        result = self._stop_clip(track_index, clip_index)
+        return result
+
+    def _wr_stop_playback(self, params):
+        result = None
+        result = self._stop_playback()
+        return result
+
+    def _wr_stop_recording(self, params):
+        result = None
+        result = self._stop_recording()
+        return result
+
+    def _wr_stop_scene(self, params):
+        result = None
+        scene_index = params.get("scene_index", 0)
+        result = self._stop_scene(scene_index)
+        return result
+
+    def _wr_tap_tempo(self, params):
+        result = None
+        result = self._tap_tempo()
+        return result
+
+    def _wr_toggle_arrangement_record(self, params):
+        result = None
+        result = self._toggle_arrangement_record()
+        return result
+
+    def _wr_toggle_device(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        device_index = params.get("device_index", 0)
+        result = self._toggle_device(track_index, device_index)
+        return result
+
+    def _wr_toggle_session_record(self, params):
+        result = None
+        result = self._toggle_session_record()
+        return result
+
+    def _wr_transpose_notes(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        clip_index = params.get("clip_index", 0)
+        semitones = params.get("semitones", 0)
+        result = self._transpose_notes(track_index, clip_index, semitones)
+        return result
+
+    def _wr_trigger_back_to_arrangement(self, params):
+        result = None
+        result = self._trigger_back_to_arrangement()
+        return result
+
+    def _wr_unarm_all(self, params):
+        result = None
+        result = self._unarm_all()
+        return result
+
+    def _wr_undo(self, params):
+        result = None
+        result = self._undo()
+        return result
+
+    def _wr_unfold_track(self, params):
+        result = None
+        track_index = params.get("track_index", 0)
+        result = self._fold_track(track_index, False)
+        return result
+
+    def _wr_ungroup_tracks(self, params):
+        result = None
+        group_track_index = params.get("group_track_index", 0)
+        result = self._ungroup_tracks(group_track_index)
+        return result
+
+    def _wr_unmute_all(self, params):
+        result = None
+        result = self._unmute_all()
+        return result
+
+    def _wr_unsolo_all(self, params):
+        result = None
+        result = self._unsolo_all()
+        return result
+
     
     # Command implementations
 
