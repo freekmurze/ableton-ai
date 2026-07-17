@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "MCP_Server"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rest_api"))
 
 from pydantic import ValidationError
 

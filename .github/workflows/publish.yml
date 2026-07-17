@@ -1,0 +1,46 @@
+# Publish to PyPI when a GitHub release is published.
+#
+# Uses PyPI Trusted Publishing (OIDC), so there is no token to store or rotate.
+# One-time setup on PyPI: Project settings, Publishing, add a trusted publisher
+#   Owner:     freekmurze
+#   Repo:      ableton-ai
+#   Workflow:  publish.yml
+#   Environment: pypi
+name: publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for Trusted Publishing; no password needed
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Check the tag matches the package version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION=$(uv version --short)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Release tag ($TAG) does not match pyproject version ($VERSION)." >&2
+            echo "Bump the version in pyproject.toml and retag." >&2
+            exit 1
+          fi
+
+      - name: Build
+        run: uv build
+
+      - name: Run tests before publishing
+        run: uv run pytest -q -m "not integration"
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always

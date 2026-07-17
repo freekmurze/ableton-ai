@@ -12,9 +12,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ableton_mcp import tools
-from ableton_mcp.exceptions import CommandFailedError, ConnectionFailedError
-from ableton_mcp.tools import _base
+from ableton_ai import tools
+from ableton_ai.exceptions import CommandFailedError, ConnectionFailedError
+from ableton_ai.tools import _base
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ def test_tool_passes_through_success() -> None:
 
 
 def test_create_midi_track_sends_expected_command(fake_connection: MagicMock) -> None:
-    from ableton_mcp.tools import tracks
+    from ableton_ai.tools import tracks
 
     fake_connection.send_command.return_value = {"name": "1-MIDI", "index": 0}
     out = tracks.create_midi_track(index=-1)
@@ -95,7 +95,7 @@ def test_create_midi_track_sends_expected_command(fake_connection: MagicMock) ->
 
 def test_set_track_volume_uses_the_volume_key(fake_connection: MagicMock) -> None:
     """Regression: this silently defaulted when called with the wrong arg name."""
-    from ableton_mcp.tools import tracks
+    from ableton_ai.tools import tracks
 
     fake_connection.send_command.return_value = {"volume": 0.6}
     tracks.set_track_volume(track_index=2, volume=0.6)
@@ -105,7 +105,7 @@ def test_set_track_volume_uses_the_volume_key(fake_connection: MagicMock) -> Non
 
 
 def test_a_failed_command_surfaces_as_error_text(fake_connection: MagicMock) -> None:
-    from ableton_mcp.tools import tracks
+    from ableton_ai.tools import tracks
 
     fake_connection.send_command.side_effect = CommandFailedError("delete_track", "out of range")
     out = tracks.delete_track(track_index=99)
@@ -114,7 +114,7 @@ def test_a_failed_command_surfaces_as_error_text(fake_connection: MagicMock) -> 
 
 
 def test_as_json_is_readable(fake_connection: MagicMock) -> None:
-    from ableton_mcp.tools import session
+    from ableton_ai.tools import session
 
     fake_connection.send_command.return_value = {"tempo": 129.0, "tracks": 7}
     out = session.get_session_info()
@@ -125,7 +125,7 @@ def test_as_json_is_readable(fake_connection: MagicMock) -> None:
 def test_json_tools_do_not_pass_stray_kwargs(fake_connection: MagicMock) -> None:
     """Regression: the extraction briefly produced as_json(result, indent=2),
     which would raise TypeError at runtime since as_json takes one argument."""
-    from ableton_mcp.tools import session
+    from ableton_ai.tools import session
 
     fake_connection.send_command.return_value = {"ok": True}
     # would raise TypeError if the stray kwarg were still there

@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Add project path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "MCP_Server"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rest_api"))
 
 
 # =============================================================================

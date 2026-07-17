@@ -1,7 +1,7 @@
 """MCP server entry point.
 
 This file used to be 2,828 lines holding all 128 tools inline. The tools now
-live in ``ableton_mcp.tools``, grouped by what they touch, and this is just the
+live in ``ableton_ai.tools``, grouped by what they touch, and this is just the
 wiring.
 """
 

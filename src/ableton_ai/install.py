@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 #: Ableton looks for control surfaces in a folder named after the script.
-SCRIPT_DIR_NAME = "AbletonMCP"
+SCRIPT_DIR_NAME = "AbletonAI"
 
 
 def user_library_candidates() -> list[Path]:
@@ -49,11 +49,11 @@ def _bundled_script() -> str:
     checkout, that data is not there, so fall back to the canonical copy at the
     repo root. This keeps the installer working in both cases.
     """
-    bundled = resources.files("ableton_mcp") / "_remote_script" / "__init__.py"
+    bundled = resources.files("ableton_ai") / "_remote_script" / "__init__.py"
     if bundled.is_file():
         return bundled.read_text(encoding="utf-8")
 
-    repo_copy = Path(__file__).resolve().parents[2] / "AbletonMCP_Remote_Script" / "__init__.py"
+    repo_copy = Path(__file__).resolve().parents[2] / "remote_script" / "__init__.py"
     if repo_copy.is_file():
         return repo_copy.read_text(encoding="utf-8")
 
@@ -93,9 +93,9 @@ def main() -> int:
     print(f"Installed the remote script to:\n  {destination}\n")
     print("Now turn it on in Ableton:")
     print("  1. Settings, then Link, Tempo & MIDI")
-    print("  2. Under Control Surface, choose AbletonMCP")
+    print("  2. Under Control Surface, choose AbletonAI")
     print("  3. Leave Input and Output on None")
-    print("\nLive's status bar should read: AbletonMCP: Listening for commands on port 9877")
+    print("\nLive's status bar should read: AbletonAI: Listening for commands on port 9877")
     return 0
 
 

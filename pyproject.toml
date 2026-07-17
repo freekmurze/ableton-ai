@@ -1,6 +1,6 @@
 [project]
 name = "ableton-ai"
-version = "2.1.0"
+version = "1.0.0"
 description = "Control Ableton Live from an AI assistant via MCP: tracks, devices, clips, automation, and generative MIDI with per-note probability."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,27 +31,27 @@ rest = ["fastapi>=0.100.0", "uvicorn>=0.22.0", "pydantic>=2.0.0", "requests>=2.2
 all = ["ableton-ai[rest]"]
 
 [project.scripts]
-ableton-ai = "ableton_mcp.server:main"
-install-remote-script = "ableton_mcp.install:main"
+ableton-ai = "ableton_ai.server:main"
+install-remote-script = "ableton_ai.install:main"
 
 [project.urls]
-Homepage = "https://github.com/freekmurze/ableton-mcp"
-Documentation = "https://github.com/freekmurze/ableton-mcp#readme"
-"Bug Tracker" = "https://github.com/freekmurze/ableton-mcp/issues"
-Changelog = "https://github.com/freekmurze/ableton-mcp/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/freekmurze/ableton-ai"
+Documentation = "https://github.com/freekmurze/ableton-ai#readme"
+"Bug Tracker" = "https://github.com/freekmurze/ableton-ai/issues"
+Changelog = "https://github.com/freekmurze/ableton-ai/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ableton_mcp"]
+packages = ["src/ableton_ai"]
 
 # Bundle the remote script into the wheel so `install-remote-script` can copy it
 # into Ableton's user library at runtime. It lives at the repo root because it is
 # the canonical copy people also install by hand.
 [tool.hatch.build.targets.wheel.force-include]
-"AbletonMCP_Remote_Script/__init__.py" = "ableton_mcp/_remote_script/__init__.py"
+"remote_script/__init__.py" = "ableton_ai/_remote_script/__init__.py"
 
 [dependency-groups]
 dev = [
@@ -74,7 +74,7 @@ target-version = "py310"
 src = ["src", "tests"]
 # The remote script runs inside Ableton's embedded Python. It cannot import
 # anything third-party and its style is constrained by that, so it is excluded.
-extend-exclude = ["AbletonMCP_Remote_Script"]
+extend-exclude = ["remote_script"]
 
 [tool.ruff.lint]
 select = [
@@ -101,9 +101,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Intra-package relative imports (from ._base import ...) are the normal idiom.
-"src/ableton_mcp/tools/*" = ["TID252"]
+"src/ableton_ai/tools/*" = ["TID252"]
 # install.py is a CLI; printing to the user is the point.
-"src/ableton_mcp/install.py" = ["T20"]
+"src/ableton_ai/install.py" = ["T20"]
 # The REST test suite is inherited. It bootstraps the module under test via a
 # sys.path insert (PTH118/PTH120), names mocks in PascalCase (N806), and
 # compares against booleans explicitly (E712). Rewriting 366 working tests to
@@ -111,7 +111,7 @@ ignore = [
 "tests/**" = ["T20", "N806", "PTH118", "PTH120", "E712", "SIM117", "RET503"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ableton_mcp"]
+known-first-party = ["ableton_ai"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -125,7 +125,7 @@ files = ["src"]
 strict = true
 warn_unreachable = true
 pretty = true
-exclude = ["AbletonMCP_Remote_Script"]
+exclude = ["remote_script"]
 
 [[tool.mypy.overrides]]
 module = ["mcp.*", "fastapi.*", "uvicorn.*", "starlette.*"]
@@ -141,7 +141,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/ableton_mcp"]
+source = ["src/ableton_ai"]
 branch = true
 
 [tool.coverage.report]

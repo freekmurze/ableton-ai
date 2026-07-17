@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ableton_mcp import install
+from ableton_ai import install
 
 
 def test_install_writes_the_script(tmp_path: Path) -> None:

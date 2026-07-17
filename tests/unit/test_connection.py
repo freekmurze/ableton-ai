@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
-from ableton_mcp.config import Settings
-from ableton_mcp.connection import AbletonConnection
-from ableton_mcp.exceptions import (
+from ableton_ai.config import Settings
+from ableton_ai.connection import AbletonConnection
+from ableton_ai.exceptions import (
     CommandFailedError,
     CommandTimeoutError,
     ConnectionFailedError,

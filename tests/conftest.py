@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Add project paths for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "MCP_Server"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rest_api"))
 
 
 # =============================================================================
