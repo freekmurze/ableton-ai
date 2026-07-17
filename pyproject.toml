@@ -1,6 +1,6 @@
 [project]
 name = "ableton-ai"
-version = "1.0.0"
+version = "1.1.0"
 description = "Control Ableton Live from an AI assistant via MCP: tracks, devices, clips, automation, and generative MIDI with per-note probability."
 readme = "README.md"
 requires-python = ">=3.10"
