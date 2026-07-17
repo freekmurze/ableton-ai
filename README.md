@@ -113,6 +113,41 @@ cp -R skills/ableton ~/.claude/skills/
 
 Restart Claude Code. It picks the skill up whenever you ask for something musical.
 
+## Using a local model instead of Claude
+
+If you'd rather not use an MCP client, there's an HTTP server that exposes the same commands. That lets you drive Ableton from a local model like [Ollama](https://ollama.com), or from anything that can make an HTTP request.
+
+Start it in its own terminal:
+
+```bash
+uv run python rest_api/rest_api_server.py
+```
+
+It listens on `http://127.0.0.1:8000`. Every command is a POST to `/api/command` with a `command` and its `params`, the same names the tools use. For example, creating a MIDI track:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/command \
+  -H "Content-Type: application/json" \
+  -d '{"command": "create_midi_track", "params": {"index": -1}}'
+```
+
+To wire it to a local model, give the model a tool that posts to that endpoint, then let it fill in the command and params. A minimal loop in Python:
+
+```python
+import requests
+
+def ableton(command, params=None):
+    return requests.post(
+        "http://127.0.0.1:8000/api/command",
+        json={"command": command, "params": params or {}},
+    ).json()
+
+ableton("set_tempo", {"tempo": 124})
+ableton("create_midi_track", {"index": -1})
+```
+
+`GET /api/commands` lists every command the server accepts, and `GET /health` tells you whether Ableton is connected. The server needs the remote script installed and enabled, same as the MCP path.
+
 ## Editing the remote script
 
 If you change the remote script, Ableton needs a restart to load it, because Live caches the compiled bytecode. Save your set, copy the updated file into place, and restart Live. Toggling the Control Surface off and on is not reliable.
