@@ -3285,7 +3285,7 @@ class AbletonAI(ControlSurface):
                 live_notes.append((pitch, start_time, duration, velocity, mute))
             
             # Add the notes
-            clip.set_notes(tuple(live_notes))
+            self._write_note_tuples(clip, live_notes)
             
             result = {
                 "note_count": len(notes)
@@ -3427,6 +3427,61 @@ class AbletonAI(ControlSurface):
         except Exception as e:
             self.log_message("Error set_chain_device_parameter: " + str(e))
             return {"error": str(e)}
+
+    def _write_note_tuples(self, clip, note_tuples, replace=False):
+        """Write (pitch, start, duration, velocity, mute) tuples using Live 11's
+        extended note API, so Live stops warning about the legacy set_notes()
+        losing MPE/probability data. Falls back to set_notes() pre-Live 11.
+        """
+        note_tuples = list(note_tuples)
+        if hasattr(clip, "add_new_notes"):
+            import Live
+            if replace and hasattr(clip, "remove_notes_extended"):
+                clip.remove_notes_extended(0, 128, 0.0, clip.length)
+            specs = []
+            for t in note_tuples:
+                pitch, start, dur, vel, mute = t[0], t[1], t[2], t[3], t[4]
+                specs.append(Live.Clip.MidiNoteSpecification(
+                    pitch=int(pitch), start_time=float(start), duration=float(dur),
+                    velocity=float(vel), mute=bool(mute)))
+            clip.add_new_notes(tuple(specs))
+            return len(specs)
+        # legacy fallback (triggers the warning, but only on ancient Live)
+        if replace and hasattr(clip, "remove_notes"):
+            clip.remove_notes(0, 0, clip.length, 128)
+        clip.set_notes(tuple(note_tuples))
+        return len(note_tuples)
+
+    def _transform_notes_extended(self, clip, transform):
+        """Read every note with full data, apply transform(dict)->dict, write back
+        preserving probability and velocity deviation. Returns note count, or
+        None if the extended API is unavailable (caller should use legacy)."""
+        if not (hasattr(clip, "get_notes_extended") and hasattr(clip, "add_new_notes")):
+            return None
+        import Live
+        notes = list(clip.get_notes_extended(0, 128, 0.0, clip.length))
+        specs = []
+        for n in notes:
+            d = transform({"pitch": n.pitch, "start_time": n.start_time,
+                           "duration": n.duration, "velocity": n.velocity, "mute": n.mute})
+            kw = dict(pitch=int(d["pitch"]), start_time=float(d["start_time"]),
+                      duration=float(d["duration"]), velocity=float(d["velocity"]),
+                      mute=bool(d["mute"]))
+            prob = getattr(n, "probability", None)
+            try:
+                spec = Live.Clip.MidiNoteSpecification(probability=prob, **kw) if prob is not None \
+                    else Live.Clip.MidiNoteSpecification(**kw)
+            except TypeError:
+                spec = Live.Clip.MidiNoteSpecification(**kw)
+                if prob is not None and hasattr(spec, "probability"):
+                    spec.probability = prob
+            vd = getattr(n, "velocity_deviation", None)
+            if vd is not None and hasattr(spec, "velocity_deviation"):
+                spec.velocity_deviation = vd
+            specs.append(spec)
+        clip.remove_notes_extended(0, 128, 0.0, clip.length)
+        clip.add_new_notes(tuple(specs))
+        return len(specs)
 
     def _add_notes_with_probability(self, track_index, clip_index, notes, replace=True):
         """Add MIDI notes carrying per-note probability.
@@ -4107,7 +4162,7 @@ class AbletonAI(ControlSurface):
             # legacy fallback - cannot carry probability
             notes = clip.get_notes(0, 0, clip.length, 128)
             out = tuple((max(0, min(127, n[0] + semitones)), n[1], n[2], n[3], n[4]) for n in notes)
-            clip.set_notes(out)
+            self._write_note_tuples(clip, out)
             return {"transposed": len(out), "semitones": semitones,
                     "probability_preserved": False,
                     "warning": "Live lacks the extended note API; probability was lost."}
@@ -4857,7 +4912,7 @@ class AbletonAI(ControlSurface):
 
             # Set quantized notes
             clip.remove_notes(0, 0, clip.length, 128)
-            clip.set_notes(tuple(quantized_notes))
+            self._write_note_tuples(clip, quantized_notes)
 
             result = {
                 "quantized": True,
@@ -4908,7 +4963,7 @@ class AbletonAI(ControlSurface):
 
             # Set humanized notes
             clip.remove_notes(0, 0, clip.length, 128)
-            clip.set_notes(tuple(humanized_notes))
+            self._write_note_tuples(clip, humanized_notes)
 
             result = {
                 "humanized": True,
@@ -4959,7 +5014,7 @@ class AbletonAI(ControlSurface):
 
             # Set humanized notes
             clip.remove_notes(0, 0, clip.length, 128)
-            clip.set_notes(tuple(humanized_notes))
+            self._write_note_tuples(clip, humanized_notes)
 
             result = {
                 "humanized": True,
@@ -5069,7 +5124,7 @@ class AbletonAI(ControlSurface):
                         notes.append((CLOSED_HH, beat + random.random() * 0.5, 0.25, random.randint(60, 90), False))
 
             # Set the notes
-            clip.set_notes(tuple(notes))
+            self._write_note_tuples(clip, notes)
 
             result = {
                 "generated": True,
@@ -5143,7 +5198,7 @@ class AbletonAI(ControlSurface):
                     notes.append((note, beat + 0.5, 0.25, random.randint(70, 90), False))
 
             # Set the notes
-            clip.set_notes(tuple(notes))
+            self._write_note_tuples(clip, notes)
 
             result = {
                 "generated": True,
@@ -8062,7 +8117,7 @@ class AbletonAI(ControlSurface):
                 (n['pitch'], n['start_time'], n['duration'], n['velocity'], n.get('mute', False))
                 for n in notes
             )
-            clip.set_notes(note_tuples)
+            self._write_note_tuples(clip, note_tuples)
             return {"success": True, "count": len(notes)}
         except Exception as e:
             return {"error": str(e)}
@@ -8117,7 +8172,7 @@ class AbletonAI(ControlSurface):
                 (max(0, min(127, n[0] + pitch_delta)), max(0, n[1] + time_delta), n[2], n[3], n[4])
                 for n in notes
             )
-            clip.set_notes(new_notes)
+            self._write_note_tuples(clip, new_notes)
             return {"moved": len(notes)}
         except Exception as e:
             return {"error": str(e)}

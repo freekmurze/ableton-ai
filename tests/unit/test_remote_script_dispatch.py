@@ -89,3 +89,63 @@ def test_state_changing_commands_route_to_main_thread(instance: Any) -> None:
     thread, because mutating Live off the main thread crashes it."""
     for cmd in ("create_midi_track", "set_track_volume", "add_notes_to_clip", "set_tempo"):
         assert instance._DISPATCH[cmd][1] is True, f"{cmd} must run on the main thread"
+
+
+def test_write_note_tuples_uses_modern_api_on_live11(instance: object) -> None:
+    """On Live 11+ (clip has add_new_notes) the helper must use it, not the
+    legacy set_notes that triggers Ableton's data-loss warning."""
+
+    class ModernClip:
+        length = 4.0
+
+        def __init__(self) -> None:
+            self.added: object = None
+            self.set_notes_called = False
+
+        def remove_notes_extended(self, *a: object) -> None: ...
+        def add_new_notes(self, specs: object) -> None:
+            self.added = specs
+        def set_notes(self, notes: object) -> None:
+            self.set_notes_called = True
+
+    import sys
+
+    Live = type(sys)("Live")
+    Clip = type(sys)("Live.Clip")
+
+    class MidiNoteSpecification:
+        def __init__(self, **kw: object) -> None:
+            self.kw = kw
+
+    Clip.MidiNoteSpecification = MidiNoteSpecification
+    Live.Clip = Clip
+    sys.modules["Live"] = Live
+    sys.modules["Live.Clip"] = Clip
+
+    clip = ModernClip()
+    count = instance._write_note_tuples(clip, [(60, 0.0, 1.0, 100, False)], replace=True)
+
+    assert count == 1
+    assert clip.added is not None, "should have used add_new_notes"
+    assert clip.set_notes_called is False, "must not use legacy set_notes on Live 11+"
+
+
+def test_write_note_tuples_does_not_recurse_on_legacy_clip(instance: object) -> None:
+    """A clip without add_new_notes must fall through to set_notes exactly once,
+    not call the helper again (the regex refactor briefly made this infinite)."""
+
+    class LegacyClip:
+        length = 4.0
+
+        def __init__(self) -> None:
+            self.set_notes_calls = 0
+
+        def remove_notes(self, *a: object) -> None: ...
+        def set_notes(self, notes: object) -> None:
+            self.set_notes_calls += 1
+
+    clip = LegacyClip()
+    count = instance._write_note_tuples(clip, [(60, 0.0, 1.0, 100, False)], replace=True)
+
+    assert count == 1
+    assert clip.set_notes_calls == 1
