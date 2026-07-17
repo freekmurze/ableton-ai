@@ -252,3 +252,82 @@ def set_chain_device_parameter(
         f"Set {result.get('parameter_name')} on '{result.get('device_name')}' "
         f"to {result.get('value')}"
     )
+
+
+@tool
+def get_master_device_parameters(device_index: int) -> str:
+    """
+    Get parameters of a device on the Master track (e.g. a mastering compressor).
+
+    The Master track holds effects like the rest, and the Live API reaches them
+    fine; they just need this dedicated command.
+
+    Parameters:
+    - device_index: The index of the device on the Master track
+    """
+    result = connection().send_command(
+        "get_master_device_parameters", {"device_index": device_index}
+    )
+    return as_json(result)
+
+
+@tool
+def set_master_device_parameter(device_index: int, parameter_name: str, value: float) -> str:
+    """
+    Set a parameter on a Master-track device (e.g. the Glue Compressor threshold).
+
+    Parameters:
+    - device_index: The index of the device on the Master track
+    - parameter_name: Name of the parameter to set
+    - value: The new value (clamped to the parameter's range)
+    """
+    result = connection().send_command(
+        "set_master_device_parameter",
+        {"device_index": device_index, "parameter_name": parameter_name, "value": value},
+    )
+    if result.get("error"):
+        return f"Error: {result['error']}"
+    return f"Set master {result.get('parameter_name')} to {result.get('value')}"
+
+
+@tool
+def get_return_device_parameters(return_index: int, device_index: int) -> str:
+    """
+    Get parameters of a device on a return track (e.g. a reverb on Return A).
+
+    Parameters:
+    - return_index: The index of the return track (0 = A, 1 = B, ...)
+    - device_index: The index of the device on that return track
+    """
+    result = connection().send_command(
+        "get_return_device_parameters",
+        {"return_index": return_index, "device_index": device_index},
+    )
+    return as_json(result)
+
+
+@tool
+def set_return_device_parameter(
+    return_index: int, device_index: int, parameter_name: str, value: float
+) -> str:
+    """
+    Set a parameter on a return-track device (e.g. reverb decay on Return A).
+
+    Parameters:
+    - return_index: The index of the return track (0 = A, 1 = B, ...)
+    - device_index: The index of the device on that return track
+    - parameter_name: Name of the parameter to set
+    - value: The new value (clamped to the parameter's range)
+    """
+    result = connection().send_command(
+        "set_return_device_parameter",
+        {
+            "return_index": return_index,
+            "device_index": device_index,
+            "parameter_name": parameter_name,
+            "value": value,
+        },
+    )
+    if result.get("error"):
+        return f"Error: {result['error']}"
+    return f"Set return {return_index} {result.get('parameter_name')} to {result.get('value')}"

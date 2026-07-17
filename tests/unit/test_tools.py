@@ -1,6 +1,6 @@
 """Tests for the MCP tool layer.
 
-The original server.py had 149 tools and zero tests. These cover the shared
+The original server.py had 153 tools and zero tests. These cover the shared
 machinery (registration, error handling, JSON rendering) and spot-check that
 representative tools call the connection the way the remote script expects.
 """
@@ -27,7 +27,7 @@ def fake_connection(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 def test_all_128_tools_register() -> None:
-    assert len(tools.REGISTRY) == 149
+    assert len(tools.REGISTRY) == 153
 
 
 def test_no_duplicate_tool_names() -> None:
@@ -43,8 +43,8 @@ def test_every_tool_is_documented() -> None:
 def test_register_all_reports_its_count() -> None:
     mcp = MagicMock()
     count = tools.register_all(mcp)
-    assert count == 149
-    assert mcp.tool.call_count == 149
+    assert count == 153
+    assert mcp.tool.call_count == 153
 
 
 # -- the @tool decorator's error handling ---------------------------------

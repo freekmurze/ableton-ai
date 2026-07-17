@@ -408,6 +408,10 @@ class AbletonAI(ControlSurface):
         "create_locator": ("_wr_create_locator", True),
         "create_midi_track": ("_wr_create_midi_track", True),
         "create_arrangement_midi_clip": ("_wr_create_arrangement_midi_clip", True),
+        "get_master_device_parameters": ("_rd_get_master_device_parameters", False),
+        "set_master_device_parameter": ("_wr_set_master_device_parameter", True),
+        "get_return_device_parameters": ("_rd_get_return_device_parameters", False),
+        "set_return_device_parameter": ("_wr_set_return_device_parameter", True),
         "create_return_track": ("_wr_create_return_track", True),
         "create_scene": ("_wr_create_scene", True),
         "delete_clip": ("_wr_delete_clip", True),
@@ -1251,6 +1255,32 @@ class AbletonAI(ControlSurface):
         name = params.get("name", "")
         result = self._create_locator(time, name)
         return result
+
+    def _wr_set_master_device_parameter(self, params):
+        result = None
+        result = self._set_master_device_parameter(
+            params.get("device_index", 0), params.get("parameter_index", None),
+            params.get("parameter_name", None), params.get("value", 0.0))
+        return result
+
+    def _wr_set_return_device_parameter(self, params):
+        result = None
+        result = self._set_return_device_parameter(
+            params.get("return_index", 0), params.get("device_index", 0),
+            params.get("parameter_index", None), params.get("parameter_name", None),
+            params.get("value", 0.0))
+        return result
+
+    def _rd_get_master_device_parameters(self, params):
+        response = {}
+        response["result"] = self._get_master_device_parameters(params.get("device_index", 0))
+        return response.get("result")
+
+    def _rd_get_return_device_parameters(self, params):
+        response = {}
+        response["result"] = self._get_return_device_parameters(
+            params.get("return_index", 0), params.get("device_index", 0))
+        return response.get("result")
 
     def _wr_create_arrangement_midi_clip(self, params):
         result = None
@@ -2263,6 +2293,70 @@ class AbletonAI(ControlSurface):
 
     
     # Command implementations
+
+    def _describe_device_params(self, device):
+        """Shared: list a device's parameters (matches get_device_parameters)."""
+        out = []
+        for i, param in enumerate(device.parameters):
+            try:
+                vstr = param.str_for_value(param.value)
+            except Exception:
+                vstr = None
+            out.append({"index": i, "name": param.name, "value": param.value,
+                        "value_string": vstr, "min": param.min, "max": param.max})
+        return {"device_name": device.name, "parameter_count": len(out), "parameters": out}
+
+    def _set_param_on(self, device, parameter_index, parameter_name, value):
+        """Shared: set a parameter on an already-resolved device, by index or name."""
+        ps = list(device.parameters)
+        param = None
+        if parameter_name is not None:
+            for pp in ps:
+                if pp.name.lower() == str(parameter_name).lower():
+                    param = pp
+                    break
+            if param is None:
+                return {"error": "No parameter '%s' on '%s'" % (parameter_name, device.name),
+                        "available": [pp.name for pp in ps]}
+        else:
+            if parameter_index is None or parameter_index < 0 or parameter_index >= len(ps):
+                return {"error": "Parameter index out of range (device has %d)" % len(ps)}
+            param = ps[parameter_index]
+        param.value = max(param.min, min(param.max, float(value)))
+        return {"device_name": device.name, "parameter_name": param.name,
+                "value": param.value, "min": param.min, "max": param.max}
+
+    def _get_master_device_parameters(self, device_index):
+        """Master-track device parameters. The Live API supports this fine; the
+        old set_device_parameter just hardcoded self._song.tracks."""
+        track = self._song.master_track
+        if device_index < 0 or device_index >= len(track.devices):
+            return {"error": "Device index out of range (master has %d)" % len(track.devices)}
+        return self._describe_device_params(track.devices[device_index])
+
+    def _set_master_device_parameter(self, device_index, parameter_index, parameter_name, value):
+        track = self._song.master_track
+        if device_index < 0 or device_index >= len(track.devices):
+            return {"error": "Device index out of range (master has %d)" % len(track.devices)}
+        return self._set_param_on(track.devices[device_index], parameter_index, parameter_name, value)
+
+    def _get_return_device_parameters(self, return_index, device_index):
+        rts = list(self._song.return_tracks)
+        if return_index < 0 or return_index >= len(rts):
+            return {"error": "Return index out of range (%d returns)" % len(rts)}
+        track = rts[return_index]
+        if device_index < 0 or device_index >= len(track.devices):
+            return {"error": "Device index out of range (return has %d)" % len(track.devices)}
+        return self._describe_device_params(track.devices[device_index])
+
+    def _set_return_device_parameter(self, return_index, device_index, parameter_index, parameter_name, value):
+        rts = list(self._song.return_tracks)
+        if return_index < 0 or return_index >= len(rts):
+            return {"error": "Return index out of range (%d returns)" % len(rts)}
+        track = rts[return_index]
+        if device_index < 0 or device_index >= len(track.devices):
+            return {"error": "Device index out of range (return has %d)" % len(track.devices)}
+        return self._set_param_on(track.devices[device_index], parameter_index, parameter_name, value)
 
     def _create_arrangement_midi_clip(self, track_index, start_time, length, notes=None):
         """Create a MIDI clip in the Arrangement view and optionally fill it.
