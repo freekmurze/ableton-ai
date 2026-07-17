@@ -25,6 +25,16 @@ Draw a twelve minute filter sweep with 200 automation points, then put
 per-note probability on the hats so they flicker instead of repeating.
 ```
 
+Ask for a whole piece in a style:
+
+```text
+Lay down a Steve Reich style phasing piece. Two piano tracks play the same
+short cell; make one clip a bar longer than the other so they drift out of
+phase and slowly pull back into sync. Add a marimba and a vibraphone doubling
+fragments of the cell at their own loop lengths, so the parts interlock and
+never quite repeat.
+```
+
 Ask it to fix what you just heard:
 
 ```text
