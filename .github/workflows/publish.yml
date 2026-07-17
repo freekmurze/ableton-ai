@@ -5,7 +5,7 @@
 #   Owner:     freekmurze
 #   Repo:      ableton-ai
 #   Workflow:  publish.yml
-#   Environment: pypi
+#   Environment: (leave blank)
 name: publish
 
 on:
@@ -15,7 +15,6 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: pypi
     permissions:
       id-token: write  # required for Trusted Publishing; no password needed
 
