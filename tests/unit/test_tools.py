@@ -157,11 +157,16 @@ def test_flagship_features_are_exposed_as_tools() -> None:
 def test_add_notes_with_probability_sends_notes(fake_connection: MagicMock) -> None:
     from ableton_ai.tools import notes
 
-    fake_connection.send_command.return_value = {"note_count": 2, "verified_first_note": {"pitch": 60}}
+    fake_connection.send_command.return_value = {
+        "note_count": 2,
+        "verified_first_note": {"pitch": 60},
+    }
     out = notes.add_notes_with_probability(
         track_index=0,
         clip_index=0,
-        notes=[{"pitch": 60, "start_time": 0.0, "duration": 1.0, "velocity": 80, "probability": 0.5}],
+        notes=[
+            {"pitch": 60, "start_time": 0.0, "duration": 1.0, "velocity": 80, "probability": 0.5}
+        ],
     )
     cmd, params = fake_connection.send_command.call_args[0]
     assert cmd == "add_notes_with_probability"
