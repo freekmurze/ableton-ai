@@ -4,6 +4,23 @@ All notable changes to `ableton-ai` are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.2.0
+
+All of this batch is verified running in Ableton Live 12.
+
+New tools: arrangement-view MIDI clips (create_arrangement_midi_clip), master
+and return track device parameters, and add_shaped_automation (draws a repeating
+waveform onto any parameter as clip automation; not a free-running LFO). Plus
+per-note probability, rack internals and scale setting, which existed in the
+remote script but had no tool.
+
+Fixes: clip automation actually writes now (it called a non-existent
+insert_value, then a zero-duration insert_step, both silent no-ops, so every
+envelope came out flat). VST/AU plug-ins load from the browser. All note
+commands use Live 11's note API, so Live no longer warns about legacy note
+editing. The remote script's 260-branch command dispatch is now a lookup table,
+with its first automated tests.
+
 ## 1.1.0
 
 Added 20 tools for commands the remote script already supported but did not
