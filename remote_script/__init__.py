@@ -5467,48 +5467,24 @@ class AbletonAI(ControlSurface):
             raise
 
     def _create_group_track(self, track_indices, name):
-        """Create a group track containing the specified tracks"""
-        try:
-            if not track_indices:
-                raise ValueError("No tracks specified for grouping")
+        """Grouping existing tracks is not exposed by the Live API.
 
-            # Validate all track indices
-            for idx in track_indices:
-                if idx < 0 or idx >= len(self._song.tracks):
-                    raise IndexError("Track index {0} out of range".format(idx))
-
-            # Sort indices in descending order for proper grouping
-            sorted_indices = sorted(track_indices, reverse=True)
-
-            # Select the tracks
-            for idx in sorted_indices:
-                self._song.tracks[idx].is_grouped = True
-
-            # Create group - this may require using Live's grouping functionality
-            # In Ableton's API, tracks can be grouped by setting is_part_of_selection
-            # and using the song's create_group_track method if available
-
-            if hasattr(self._song, 'create_group_track'):
-                # Select the tracks first
-                self._song.view.selected_track = self._song.tracks[sorted_indices[0]]
-                group_track = self._song.create_group_track(sorted_indices[0])
-                if name:
-                    group_track.name = name
-
-                return {
-                    "created": True,
-                    "group_track_index": list(self._song.tracks).index(group_track),
-                    "grouped_tracks": track_indices,
-                    "name": name
-                }
-            else:
-                return {
-                    "error": "Group track creation not supported in this Ableton version",
-                    "note": "Try selecting tracks manually and using Cmd+G"
-                }
-        except Exception as e:
-            self.log_message("Error creating group track: " + str(e))
-            raise
+        The old code tried to set track.is_grouped (read-only) and call a
+        non-existent Song.create_group_track, so it always errored. There is no
+        LOM method to group tracks; Cmd+G is UI-only. For a shared effect across
+        tracks (the usual reason to group), use a return track instead:
+        create_return_track, load the effect onto it, then set_send_level on
+        each source track. That is fully scriptable and is the right home for a
+        send effect like a big evolving echo.
+        """
+        return {
+            "error": "The Live API cannot group tracks (Cmd+G is UI-only).",
+            "alternative": (
+                "For a shared effect, create a return track, load the effect on "
+                "it, and raise each track's send. For a real group, the user must "
+                "select the tracks and press Cmd+G."
+            ),
+        }
 
     def _ungroup_tracks(self, group_track_index):
         """Ungroup a group track"""

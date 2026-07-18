@@ -74,6 +74,14 @@ track.
 Drift's modulation matrix source and destination selectors. The amounts
 (`Mod Matrix Amt 1`, `LP Mod Amt 1`) are settable; the routing is not.
 
+Grouping tracks (Cmd+G). The Live API cannot group existing tracks: it only
+reads group membership, never creates a group. Do not promise grouping. When
+the goal is a shared effect across tracks, which is the usual reason to group,
+make a return track instead: create_return_track, load the effect on it, then
+raise each source track's send. That is fully scriptable and is the right home
+for a send effect like a shared echo or reverb. Only a real group needs the user
+to select the tracks and press Cmd+G.
+
 Don't fake your way around these. Set everything you can, then tell the user
 exactly which control to click, naming the device and the parameter.
 
