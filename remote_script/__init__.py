@@ -5413,31 +5413,54 @@ class AbletonAI(ControlSurface):
             elif hasattr(envelope, 'clear_range'):
                 envelope.clear_range(0.0, getattr(clip, 'length', 0.0))
 
-            # Insert breakpoints. The Live API method is insert_step(time,
-            # duration, value); a zero-duration step is a breakpoint and Live
-            # interpolates linearly between them. The previous code called a
-            # non-existent insert_value() guarded by hasattr, so it silently
-            # inserted nothing and every envelope came out flat.
+            # Insert automation. insert_step(time, duration, value) fills a
+            # CONSTANT value over [time, time+duration]; a zero-duration step
+            # covers no time and inserts nothing (that was the previous bug).
+            # So each point gets a duration spanning to the next point, making a
+            # staircase that approximates the intended curve.
+            data = sorted(
+                [{"time": float(p.get("time", 0)), "value": float(p.get("value", param.value))}
+                 for p in envelope_data],
+                key=lambda p: p["time"])
+            clip_len = getattr(clip, "length", 0.0)
             inserted = 0
             method = None
-            for point in envelope_data:
-                time = float(point.get("time", 0))
-                value = float(point.get("value", param.value))
-                if hasattr(envelope, 'insert_step'):
-                    envelope.insert_step(time, 0.0, value)
+            for i, point in enumerate(data):
+                t = point["time"]
+                value = point["value"]
+                nxt = data[i + 1]["time"] if i + 1 < len(data) else clip_len
+                dur = nxt - t
+                if dur <= 0.0:
+                    dur = 0.03125  # a 128th note, so the last/overlapping point still writes
+                if hasattr(envelope, "insert_step"):
+                    envelope.insert_step(t, dur, value)
                     inserted += 1
                     method = "insert_step"
-                elif hasattr(envelope, 'insert_value'):
-                    envelope.insert_value(time, value)
+                elif hasattr(envelope, "insert_value"):
+                    envelope.insert_value(t, value)
                     inserted += 1
                     method = "insert_value"
+
+            # Self-verify within this same main-thread call: sample the envelope
+            # we just wrote, so the caller learns immediately whether it took
+            # rather than needing a separate read (and a separate Live restart).
+            probe = []
+            if data and hasattr(envelope, "value_at_time"):
+                for frac in (0.0, 0.25, 0.5, 0.75):
+                    tt = clip_len * frac
+                    try:
+                        probe.append(round(envelope.value_at_time(tt), 4))
+                    except Exception:
+                        probe.append(None)
 
             return {
                 "track_index": track_index,
                 "clip_index": clip_index,
                 "parameter_name": parameter_name,
                 "points_added": inserted,
-                "method": method
+                "method": method,
+                "self_check_samples": probe,
+                "self_check_flat": (len(set(probe)) <= 1) if probe else None,
             }
         except Exception as e:
             self.log_message("Error setting clip automation: " + str(e))
