@@ -215,3 +215,16 @@ def create_arrangement_midi_clip(
         f"Created arrangement MIDI clip on track {track_index} at beat {start_time}, "
         f"length {length}, with {result.get('notes_added', 0)} notes"
     )
+
+
+@tool
+def get_arrangement_clips(track_index: int) -> str:
+    """
+    Read the clips on a track's Arrangement timeline (name, position, length,
+    MIDI/audio, muted).
+
+    Parameters:
+    - track_index: The index of the track
+    """
+    result = connection().send_command("get_arrangement_clips", {"track_index": track_index})
+    return as_json(result)

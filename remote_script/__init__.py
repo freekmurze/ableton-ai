@@ -408,6 +408,7 @@ class AbletonAI(ControlSurface):
         "create_locator": ("_wr_create_locator", True),
         "create_midi_track": ("_wr_create_midi_track", True),
         "create_arrangement_midi_clip": ("_wr_create_arrangement_midi_clip", True),
+        "get_arrangement_clips": ("_rd_get_arrangement_clips", False),
         "get_master_device_parameters": ("_rd_get_master_device_parameters", False),
         "set_master_device_parameter": ("_wr_set_master_device_parameter", True),
         "get_return_device_parameters": ("_rd_get_return_device_parameters", False),
@@ -1270,6 +1271,11 @@ class AbletonAI(ControlSurface):
             params.get("parameter_index", None), params.get("parameter_name", None),
             params.get("value", 0.0))
         return result
+
+    def _rd_get_arrangement_clips(self, params):
+        response = {}
+        response["result"] = self._get_arrangement_clips(params.get("track_index", 0))
+        return response.get("result")
 
     def _rd_get_master_device_parameters(self, params):
         response = {}
@@ -2358,6 +2364,33 @@ class AbletonAI(ControlSurface):
         if device_index < 0 or device_index >= len(track.devices):
             return {"error": "Device index out of range (return has %d)" % len(track.devices)}
         return self._set_param_on(track.devices[device_index], parameter_index, parameter_name, value)
+
+    def _get_arrangement_clips(self, track_index):
+        """Read the clips on a track's Arrangement timeline.
+
+        The Live API exposes track.arrangement_clips (Live 11+); the script
+        just never wrapped it, hence "no tool can read Arrangement clips".
+        """
+        if track_index < 0 or track_index >= len(self._song.tracks):
+            return {"error": "Track index out of range"}
+        track = self._song.tracks[track_index]
+        if not hasattr(track, "arrangement_clips"):
+            return {"error": "This Live version does not expose arrangement_clips (needs Live 11+)"}
+        clips = []
+        for i, clip in enumerate(track.arrangement_clips):
+            clips.append({
+                "index": i,
+                "name": getattr(clip, "name", None),
+                "start_time": getattr(clip, "start_time", None),
+                "end_time": getattr(clip, "end_time", None),
+                "length": getattr(clip, "length", None),
+                "is_midi": bool(getattr(clip, "is_midi_clip", False)),
+                "is_audio": bool(getattr(clip, "is_audio_clip", False)),
+                "muted": bool(getattr(clip, "muted", False)),
+                "looping": bool(getattr(clip, "looping", False)),
+                "color_index": getattr(clip, "color_index", None),
+            })
+        return {"track_index": track_index, "clip_count": len(clips), "clips": clips}
 
     def _create_arrangement_midi_clip(self, track_index, start_time, length, notes=None):
         """Create a MIDI clip in the Arrangement view and optionally fill it.
