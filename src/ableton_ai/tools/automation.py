@@ -73,7 +73,7 @@ def set_clip_automation(
 
 
 @tool
-def add_lfo_automation(
+def add_shaped_automation(
     track_index: int,
     clip_index: int,
     parameter_name: str,
@@ -85,16 +85,21 @@ def add_lfo_automation(
     points: int = 33,
 ) -> str:
     """
-    Modulate any device parameter with an LFO shape, by drawing it as clip
-    automation. This is the scriptable alternative to the Max for Live LFO's
-    Map button, which the API cannot set.
+    Draw a repeating waveform onto any device parameter as clip automation.
+
+    This is NOT a free-running LFO. The curve is baked into the clip and repeats
+    every loop, phase-locked to the bar. For a genuinely free-running LFO on an
+    arbitrary parameter you still need a Max for Live LFO, whose Map button the
+    API cannot set (ask the user to click it). Use this when a loop-locked,
+    editable curve is acceptable, and use a long or coprime clip length if you
+    want the repetition to be hard to notice.
 
     Parameters:
     - track_index, clip_index: the clip to draw the automation into
     - parameter_name: the parameter to modulate
     - device_index: which device on the track owns that parameter
     - shape: sine, triangle, saw, square, or random
-    - cycles: how many full LFO cycles across the clip (can be fractional)
+    - cycles: how many full waveform cycles across the clip (can be fractional)
     - min_value, max_value: the range the parameter sweeps between
     - points: resolution of the drawn curve (more = smoother)
     """
@@ -144,6 +149,6 @@ def add_lfo_automation(
     if result.get("error"):
         return f"Error: {result['error']}"
     return (
-        f"Drew a {shape} LFO ({cycles} cycles, {min_value} to {max_value}) on "
+        f"Drew a repeating {shape} ({cycles} cycles, {min_value} to {max_value}) on "
         f"{parameter_name} across {length} beats, {result.get('points_added')} points"
     )

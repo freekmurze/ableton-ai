@@ -60,7 +60,12 @@ Live doesn't expose routing choices as automatable parameters. If it's a
 dropdown or a Map button in the UI, the API cannot set it. Known cases:
 
 The Max for Live LFO's Map button. Every other knob on it (Rate, Depth,
-Jitter, Smooth, Phase, Shape) is yours, but the target isn't.
+Jitter, Smooth, Phase, Shape) is yours, but the target isn't. Whenever you use a
+Max for Live LFO to modulate a parameter, you MUST stop and ask the user to
+click Map and pick the target. Do not proceed as if it is done, and do not
+pretend a workaround makes it unnecessary. Set every knob on the LFO first, then
+say exactly which knob to Map onto (device and parameter name). The click is
+once per LFO; after it, you own the rest.
 
 A Compressor's sidechain Audio From source. You can set `S/C On`, threshold,
 ratio, attack, release, and the whole sidechain EQ. You cannot pick the source
@@ -71,6 +76,25 @@ Drift's modulation matrix source and destination selectors. The amounts
 
 Don't fake your way around these. Set everything you can, then tell the user
 exactly which control to click, naming the device and the parameter.
+
+## Free-running modulation of an arbitrary parameter needs the Map click
+
+There is no combination of tools that is free-running AND aims at any parameter
+AND needs no click. Be honest about which you are giving up:
+
+A native device LFO (Auto Filter's LFO to cutoff, Auto Pan) is free-running and
+fully scriptable, but only reaches its own fixed target. Reach for these first
+when the target is one they cover, because they need no click.
+
+`add_shaped_automation` draws a waveform onto any parameter, but it is clip
+automation: it repeats every loop and is phase-locked to the bar. It is not
+free-running. A long or coprime clip length hides the repetition but does not
+remove it. Use it when a loop-locked, editable curve is acceptable.
+
+The Max for Live LFO is the only way to get free-running modulation of an
+arbitrary parameter, and it requires the one Map click. If the user wants that
+combination, ask for the click. Never imply `add_shaped_automation` is
+equivalent to a real LFO; it loops, a real LFO does not.
 
 ## Parameter names that will bite you
 
