@@ -6059,6 +6059,19 @@ class AbletonAI(ControlSurface):
                 except Exception as e:
                     self.log_message("Error processing midi_effects: {0}".format(str(e)))
             
+            # Explicit Plug-Ins (VST/AU) and User Library, so they always appear
+            # rather than depending on the generic loop below (which can miss the
+            # lazily-populated plugins browser).
+            for cat_attr, cat_label in (("plugins", "Plug-Ins"), ("user_library", "User Library")):
+                if (category_type == "all" or category_type == cat_attr) and hasattr(app.browser, cat_attr):
+                    try:
+                        cat = process_item(getattr(app.browser, cat_attr))
+                        if cat:
+                            cat["name"] = cat_label
+                            result["categories"].append(cat)
+                    except Exception as e:
+                        self.log_message("Error processing %s: %s" % (cat_attr, str(e)))
+
             # Try to process other potentially available categories
             for attr in browser_attrs:
                 if attr not in ['instruments', 'sounds', 'drums', 'audio_effects', 'midi_effects'] and \
@@ -6128,6 +6141,10 @@ class AbletonAI(ControlSurface):
                 current_item = app.browser.audio_effects
             elif root_category == "midi_effects" and hasattr(app.browser, 'midi_effects'):
                 current_item = app.browser.midi_effects
+            elif root_category in ("plugins", "plug-ins", "plug_ins") and hasattr(app.browser, 'plugins'):
+                current_item = app.browser.plugins
+            elif root_category in ("user_library", "user-library") and hasattr(app.browser, 'user_library'):
+                current_item = app.browser.user_library
             else:
                 # Try to find the category in other browser attributes
                 found = False
