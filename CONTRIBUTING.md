@@ -12,7 +12,7 @@ Please review these guidelines before submitting any pull requests.
 
 ## Guidelines
 
-* Please ensure the coding style running `uv run ruff format src tests`.
+* Please ensure the coding style by running the commands in the [Lint](#lint) section below.
 * Send a coherent commit history, making sure each individual commit in your pull request is meaningful.
 * You may need to [rebase](https://git-scm.com/book/en/v2/Git-Branching-Rebasing) to avoid merge conflicts.
 * Please remember that we follow [SemVer](http://semver.org/).
@@ -23,10 +23,16 @@ Clone your fork, then install the dev dependencies:
 ```bash
 uv sync --all-extras
 ```
+
+Install the pre-commit hooks so linting and formatting run on each commit:
+```bash
+uv run pre-commit install
+```
 ## Lint
 
-Lint your code:
+Format and lint your code:
 ```bash
+uv run ruff format src tests
 uv run ruff check src tests
 ```
 
@@ -37,7 +43,12 @@ uv run mypy
 
 ## Tests
 
-Run all tests:
+Run the tests, skipping the ones that need a live Ableton (this is what CI runs):
+```bash
+uv run pytest -m "not integration"
+```
+
+Tests marked `integration` need a running Ableton with the remote script enabled, so they are deselected by default. Run the full suite, including those, once Ableton is up:
 ```bash
 uv run pytest
 ```

@@ -6,7 +6,7 @@ error handling that used to be copy-pasted into every function.
 
 from __future__ import annotations
 
-from ._base import as_json, connection, tool
+from ._base import as_json, connection, failed, tool
 
 
 @tool
@@ -23,8 +23,8 @@ def apply_groove(track_index: int, clip_index: int, groove_index: int) -> str:
         "apply_groove",
         {"track_index": track_index, "clip_index": clip_index, "groove_index": groove_index},
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Applied groove '{result.get('groove_name')}' to clip"
 
 
@@ -49,8 +49,8 @@ def commit_groove(track_index: int, clip_index: int) -> str:
     result = connection().send_command(
         "commit_groove", {"track_index": track_index, "clip_index": clip_index}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return "Committed groove to clip"
 
 
@@ -279,8 +279,8 @@ def set_overdub(enabled: bool) -> str:
     - enabled: True to enable overdub, False to disable
     """
     result = connection().send_command("set_overdub", {"enabled": enabled})
-    if "error" in result:
-        return str(result.get("error"))
+    if error := failed(result):
+        return error
     state = "enabled" if result.get("overdub") else "disabled"
     return f"Overdub is now {state}"
 
@@ -297,6 +297,8 @@ def set_scene_color(scene_index: int, color: int) -> str:
     result = connection().send_command(
         "set_scene_color", {"scene_index": scene_index, "color": color}
     )
+    if error := failed(result):
+        return error
     return f"Set scene {scene_index} color to {result.get('color_index')}"
 
 
@@ -310,6 +312,8 @@ def set_scene_name(scene_index: int, name: str) -> str:
     - name: The new name for the scene
     """
     result = connection().send_command("set_scene_name", {"scene_index": scene_index, "name": name})
+    if error := failed(result):
+        return error
     return f"Renamed scene {scene_index} to '{result.get('name')}'"
 
 
@@ -321,8 +325,10 @@ def set_tempo(tempo: float) -> str:
     Parameters:
     - tempo: The new tempo in BPM
     """
-    connection().send_command("set_tempo", {"tempo": tempo})
-    return f"Set tempo to {tempo} BPM"
+    result = connection().send_command("set_tempo", {"tempo": tempo})
+    if error := failed(result):
+        return error
+    return f"Set tempo to {result.get('tempo', tempo)} BPM"
 
 
 @tool
@@ -369,8 +375,8 @@ def stop_scene(scene_index: int) -> str:
 def toggle_session_record() -> str:
     """Toggle session record mode."""
     result = connection().send_command("toggle_session_record")
-    if "error" in result:
-        return str(result.get("error"))
+    if error := failed(result):
+        return error
     state = "on" if result.get("session_record") else "off"
     return f"Session record is now {state}"
 
@@ -420,8 +426,8 @@ def set_song_scale(scale_name: str) -> str:
       "Dorian", "Lydian".
     """
     result = connection().send_command("set_song_scale", {"scale_name": scale_name})
-    if result.get("error"):
-        return str(result["error"])
+    if error := failed(result):
+        return error
     return f"Song scale set to {result.get('scale_name')} (root {result.get('root_note')})"
 
 
@@ -434,6 +440,8 @@ def set_song_root_note(root_note: int) -> str:
     - root_note: 0 to 11, where 0 is C, 1 is C#, ... 9 is A, 11 is B.
     """
     result = connection().send_command("set_song_root_note", {"root_note": root_note})
+    if error := failed(result):
+        return error
     return f"Set song root note to {result.get('root_note', root_note)}"
 
 

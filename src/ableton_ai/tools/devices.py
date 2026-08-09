@@ -6,7 +6,27 @@ error handling that used to be copy-pasted into every function.
 
 from __future__ import annotations
 
-from ._base import as_json, connection, tool
+from typing import Any
+
+from ._base import as_json, connection, failed, tool
+
+
+def _describe_parameter_set(
+    result: dict[str, Any], *, prefix: str = "", device: str | None = None
+) -> str:
+    """Confirm a parameter change, preferring Live's own display string.
+
+    The remote script echoes ``value_string`` (e.g. "800 Hz", "Off") when Live can
+    render one, which tells the agent what actually landed far better than a raw
+    normalized float. Fall back to the numeric ``value`` when no display string is
+    available, so a single set call is enough to verify the result.
+    """
+    name = result.get("parameter_name")
+    landed = result.get("value_string")
+    if landed is None:
+        landed = result.get("value")
+    where = f" on '{device}'" if device else ""
+    return f"Set {prefix}{name}{where} to {landed}"
 
 
 @tool
@@ -137,8 +157,8 @@ def select_rack_chain(track_index: int, device_index: int, chain_index: int) -> 
         "select_rack_chain",
         {"track_index": track_index, "device_index": device_index, "chain_index": chain_index},
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Selected chain '{result.get('chain_name')}'"
 
 
@@ -164,7 +184,9 @@ def set_device_parameter(
             "value": value,
         },
     )
-    return f"Set {result.get('parameter_name')} to {result.get('value')} (range: {result.get('min')} - {result.get('max')})"
+    if error := failed(result):
+        return error
+    return _describe_parameter_set(result)
 
 
 @tool
@@ -248,10 +270,9 @@ def set_chain_device_parameter(
             "value": value,
         },
     )
-    return (
-        f"Set {result.get('parameter_name')} on '{result.get('device_name')}' "
-        f"to {result.get('value')}"
-    )
+    if error := failed(result):
+        return error
+    return _describe_parameter_set(result, device=result.get("device_name"))
 
 
 @tool
@@ -285,9 +306,9 @@ def set_master_device_parameter(device_index: int, parameter_name: str, value: f
         "set_master_device_parameter",
         {"device_index": device_index, "parameter_name": parameter_name, "value": value},
     )
-    if result.get("error"):
-        return f"Error: {result['error']}"
-    return f"Set master {result.get('parameter_name')} to {result.get('value')}"
+    if error := failed(result):
+        return error
+    return _describe_parameter_set(result, prefix="master ")
 
 
 @tool
@@ -328,6 +349,6 @@ def set_return_device_parameter(
             "value": value,
         },
     )
-    if result.get("error"):
-        return f"Error: {result['error']}"
-    return f"Set return {return_index} {result.get('parameter_name')} to {result.get('value')}"
+    if error := failed(result):
+        return error
+    return _describe_parameter_set(result, prefix=f"return {return_index} ")

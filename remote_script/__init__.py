@@ -409,6 +409,8 @@ class AbletonAI(ControlSurface):
         "create_midi_track": ("_wr_create_midi_track", True),
         "create_arrangement_midi_clip": ("_wr_create_arrangement_midi_clip", True),
         "get_arrangement_clips": ("_rd_get_arrangement_clips", False),
+        "get_arrangement_clip_notes": ("_rd_get_arrangement_clip_notes", False),
+        "set_arrangement_clip_notes": ("_wr_set_arrangement_clip_notes", True),
         "get_master_device_parameters": ("_rd_get_master_device_parameters", False),
         "set_master_device_parameter": ("_wr_set_master_device_parameter", True),
         "get_return_device_parameters": ("_rd_get_return_device_parameters", False),
@@ -1277,6 +1279,12 @@ class AbletonAI(ControlSurface):
         response["result"] = self._get_arrangement_clips(params.get("track_index", 0))
         return response.get("result")
 
+    def _rd_get_arrangement_clip_notes(self, params):
+        response = {}
+        response["result"] = self._get_arrangement_clip_notes(
+            params.get("track_index", 0), params.get("clip_index", 0))
+        return response.get("result")
+
     def _rd_get_master_device_parameters(self, params):
         response = {}
         response["result"] = self._get_master_device_parameters(params.get("device_index", 0))
@@ -1287,6 +1295,15 @@ class AbletonAI(ControlSurface):
         response["result"] = self._get_return_device_parameters(
             params.get("return_index", 0), params.get("device_index", 0))
         return response.get("result")
+
+    def _wr_set_arrangement_clip_notes(self, params):
+        result = self._set_arrangement_clip_notes(
+            params.get("track_index", 0),
+            params.get("clip_index", 0),
+            params.get("notes", []),
+            params.get("replace", True),
+        )
+        return result
 
     def _wr_create_arrangement_midi_clip(self, params):
         result = None
@@ -2330,8 +2347,14 @@ class AbletonAI(ControlSurface):
                 return {"error": "Parameter index out of range (device has %d)" % len(ps)}
             param = ps[parameter_index]
         param.value = max(param.min, min(param.max, float(value)))
+        try:
+            vstr = param.str_for_value(param.value)
+        except Exception:
+            vstr = None
         return {"device_name": device.name, "parameter_name": param.name,
-                "value": param.value, "min": param.min, "max": param.max}
+                "value": param.value, "value_string": vstr,
+                "is_quantized": bool(getattr(param, "is_quantized", False)),
+                "min": param.min, "max": param.max}
 
     def _get_master_device_parameters(self, device_index):
         """Master-track device parameters. The Live API supports this fine; the
@@ -2392,6 +2415,174 @@ class AbletonAI(ControlSurface):
             })
         return {"track_index": track_index, "clip_count": len(clips), "clips": clips}
 
+    def _arrangement_midi_clip(self, track_index, clip_index):
+        """Resolve one MIDI clip on a track's Arrangement timeline.
+
+        Returns (clip, None) on success or (None, error_dict) so the callers
+        can validate identically instead of drifting apart.
+        """
+        if track_index < 0 or track_index >= len(self._song.tracks):
+            return None, {"error": "Track index out of range"}
+        track = self._song.tracks[track_index]
+        if not hasattr(track, "arrangement_clips"):
+            return None, {"error": "This Live version does not expose arrangement_clips (needs Live 11+)"}
+        clips = track.arrangement_clips
+        if clip_index < 0 or clip_index >= len(clips):
+            return None, {"error": "Arrangement clip index out of range (track has %d)" % len(clips)}
+        clip = clips[clip_index]
+        if not getattr(clip, "is_midi_clip", False):
+            return None, {"error": "Arrangement clip %d is not a MIDI clip" % clip_index}
+        return clip, None
+
+    def _note_specs(self, notes):
+        """Build Live MidiNoteSpecifications, keeping probability and
+        velocity_deviation.
+
+        Those two carry the randomness and the humanization. The plain
+        constructor drops both, so they are passed as kwargs where the Live
+        build accepts them and assigned afterwards where it does not.
+        """
+        import Live
+        specs = []
+        for n in notes:
+            kw = dict(pitch=int(n.get("pitch", 60)),
+                      start_time=float(n.get("start_time", 0.0)),
+                      duration=float(n.get("duration", 0.25)),
+                      velocity=float(n.get("velocity", 100)),
+                      mute=bool(n.get("mute", False)))
+            prob = n.get("probability", None)
+            spec = None
+            if prob is not None:
+                try:
+                    spec = Live.Clip.MidiNoteSpecification(probability=float(prob), **kw)
+                except TypeError:
+                    spec = None
+            if spec is None:
+                spec = Live.Clip.MidiNoteSpecification(**kw)
+                if prob is not None and hasattr(spec, "probability"):
+                    spec.probability = float(prob)
+            vd = n.get("velocity_deviation", None)
+            if vd is not None and hasattr(spec, "velocity_deviation"):
+                spec.velocity_deviation = float(vd)
+            specs.append(spec)
+        return specs
+
+    def _set_arrangement_clip_notes(self, track_index, clip_index, notes, replace=True):
+        """Write notes into an existing Arrangement clip, in place.
+
+        create_arrangement_midi_clip builds a new clip, which throws away the
+        loop braces, the name, the colour and any clip envelopes. Editing the
+        existing clip keeps all of that, so a 16-beat loop stretched over 300
+        bars stays stretched instead of collapsing to 16 beats.
+        """
+        try:
+            clip, error = self._arrangement_midi_clip(track_index, clip_index)
+            if error:
+                return error
+            if not hasattr(clip, "add_new_notes"):
+                return {"error": "This Live version has no add_new_notes (needs Live 11+)"}
+
+            from_time = float(getattr(clip, "start_marker", 0.0) or 0.0)
+            end_marker = getattr(clip, "end_marker", None)
+            if end_marker is None:
+                end_marker = from_time + float(getattr(clip, "length", 0.0) or 0.0)
+            time_span = max(float(end_marker) - from_time, float(getattr(clip, "length", 0.0) or 0.0))
+            if time_span <= 0:
+                time_span = 1.0
+
+            removed = 0
+            if replace and hasattr(clip, "remove_notes_extended"):
+                if hasattr(clip, "get_notes_extended"):
+                    removed = len(list(clip.get_notes_extended(0, 128, from_time, time_span)))
+                clip.remove_notes_extended(0, 128, from_time, time_span)
+
+            specs = self._note_specs(notes or [])
+            if specs:
+                clip.add_new_notes(tuple(specs))
+            return {"set": True, "track_index": track_index, "clip_index": clip_index,
+                    "clip_name": getattr(clip, "name", None),
+                    "notes_removed": removed, "notes_added": len(specs),
+                    "replace": bool(replace),
+                    "length": getattr(clip, "length", None),
+                    "start_time": getattr(clip, "start_time", None),
+                    "end_time": getattr(clip, "end_time", None)}
+        except Exception as e:
+            self.log_message("Error set_arrangement_clip_notes: " + str(e))
+            return {"error": str(e)}
+
+    def _get_arrangement_clip_notes(self, track_index, clip_index):
+        """Read the MIDI notes of a clip on a track's Arrangement timeline.
+
+        The note tools all address clip_slots, so they can only see Session
+        clips; pointing them at a track whose notes live on the timeline just
+        reports "No clip in slot". This reads track.arrangement_clips instead.
+
+        Uses get_notes_extended so probability and velocity_deviation survive,
+        which the legacy get_selected_notes 5-tuple drops. Falls back to the
+        legacy call on Live versions that lack the extended API.
+
+        Notes are read over the clip's marker region rather than its arrangement
+        extent. A looped clip stores one copy of its notes and repeats them, so
+        a 16-beat loop stretched over 1147 beats still returns 16 beats of notes.
+        """
+        clip, error = self._arrangement_midi_clip(track_index, clip_index)
+        if error:
+            return error
+
+        from_time = float(getattr(clip, "start_marker", 0.0) or 0.0)
+        end_marker = getattr(clip, "end_marker", None)
+        if end_marker is None:
+            end_marker = from_time + float(getattr(clip, "length", 0.0) or 0.0)
+        time_span = max(float(end_marker) - from_time, float(getattr(clip, "length", 0.0) or 0.0))
+        if time_span <= 0:
+            time_span = 1.0
+
+        notes = []
+        used_extended = False
+        if hasattr(clip, "get_notes_extended"):
+            used_extended = True
+            for nt in clip.get_notes_extended(0, 128, from_time, time_span):
+                notes.append({
+                    "pitch": nt.pitch,
+                    "start_time": nt.start_time,
+                    "duration": nt.duration,
+                    "velocity": nt.velocity,
+                    "mute": bool(nt.mute),
+                    "probability": getattr(nt, "probability", None),
+                    "velocity_deviation": getattr(nt, "velocity_deviation", None),
+                })
+        else:
+            clip.select_all_notes()
+            for nt in clip.get_selected_notes():
+                notes.append({
+                    "pitch": nt[0],
+                    "start_time": nt[1],
+                    "duration": nt[2],
+                    "velocity": nt[3],
+                    "mute": bool(nt[4]),
+                })
+            clip.deselect_all_notes()
+
+        notes.sort(key=lambda n: (n["start_time"], n["pitch"]))
+        return {
+            "track_index": track_index,
+            "clip_index": clip_index,
+            "clip_name": getattr(clip, "name", None),
+            "start_time": getattr(clip, "start_time", None),
+            "end_time": getattr(clip, "end_time", None),
+            "length": getattr(clip, "length", None),
+            "looping": bool(getattr(clip, "looping", False)),
+            "loop_start": getattr(clip, "loop_start", None),
+            "loop_end": getattr(clip, "loop_end", None),
+            "start_marker": getattr(clip, "start_marker", None),
+            "end_marker": getattr(clip, "end_marker", None),
+            "notes_read_from": from_time,
+            "notes_read_span": time_span,
+            "has_probability": used_extended,
+            "note_count": len(notes),
+            "notes": notes,
+        }
+
     def _create_arrangement_midi_clip(self, track_index, start_time, length, notes=None):
         """Create a MIDI clip in the Arrangement view and optionally fill it.
 
@@ -2413,23 +2604,7 @@ class AbletonAI(ControlSurface):
                 clip = track.create_midi_clip(length)
             added = 0
             if notes and hasattr(clip, "add_new_notes"):
-                import Live
-                specs = []
-                for n in notes:
-                    kw = dict(pitch=int(n.get("pitch", 60)),
-                              start_time=float(n.get("start_time", 0.0)),
-                              duration=float(n.get("duration", 0.25)),
-                              velocity=float(n.get("velocity", 100)),
-                              mute=bool(n.get("mute", False)))
-                    spec = None
-                    if "probability" in n:
-                        try:
-                            spec = Live.Clip.MidiNoteSpecification(probability=float(n["probability"]), **kw)
-                        except TypeError:
-                            spec = None
-                    if spec is None:
-                        spec = Live.Clip.MidiNoteSpecification(**kw)
-                    specs.append(spec)
+                specs = self._note_specs(notes)
                 clip.add_new_notes(tuple(specs))
                 added = len(specs)
             return {"created": True, "track_index": track_index,
@@ -2852,6 +3027,13 @@ class AbletonAI(ControlSurface):
                     "type": self._get_device_type(device)
                 })
             
+            vol = track.mixer_device.volume
+            panning = track.mixer_device.panning
+            try:
+                vol_display = vol.str_for_value(vol.value)
+                pan_display = panning.str_for_value(panning.value)
+            except Exception:
+                vol_display = pan_display = None
             result = {
                 "index": track_index,
                 "name": track.name,
@@ -2860,8 +3042,10 @@ class AbletonAI(ControlSurface):
                 "mute": track.mute,
                 "solo": track.solo,
                 "arm": track.arm,
-                "volume": track.mixer_device.volume.value,
-                "panning": track.mixer_device.panning.value,
+                "volume": vol.value,
+                "volume_display": vol_display,
+                "panning": panning.value,
+                "panning_display": pan_display,
                 "clip_slots": clip_slots,
                 "devices": devices
             }
@@ -3001,11 +3185,17 @@ class AbletonAI(ControlSurface):
                 raise IndexError("Track index out of range")
 
             track = self._song.tracks[track_index]
-            track.mixer_device.volume.value = max(0.0, min(1.0, volume))
+            vol = track.mixer_device.volume
+            vol.value = max(0.0, min(1.0, volume))
 
+            try:
+                vstr = vol.str_for_value(vol.value)
+            except Exception:
+                vstr = None
             result = {
                 "track_index": track_index,
-                "volume": track.mixer_device.volume.value
+                "volume": vol.value,
+                "volume_display": vstr
             }
             return result
         except Exception as e:
@@ -3019,11 +3209,17 @@ class AbletonAI(ControlSurface):
                 raise IndexError("Track index out of range")
 
             track = self._song.tracks[track_index]
-            track.mixer_device.panning.value = max(-1.0, min(1.0, pan))
+            panning = track.mixer_device.panning
+            panning.value = max(-1.0, min(1.0, pan))
 
+            try:
+                pstr = panning.str_for_value(panning.value)
+            except Exception:
+                pstr = None
             result = {
                 "track_index": track_index,
-                "panning": track.mixer_device.panning.value
+                "panning": panning.value,
+                "panning_display": pstr
             }
             return result
         except Exception as e:
@@ -4309,12 +4505,18 @@ class AbletonAI(ControlSurface):
             if send_index < 0 or send_index >= len(sends):
                 raise IndexError("Send index out of range")
 
-            sends[send_index].value = max(0.0, min(1.0, level))
+            send = sends[send_index]
+            send.value = max(0.0, min(1.0, level))
 
+            try:
+                level_display = send.str_for_value(send.value)
+            except Exception:
+                level_display = None
             result = {
                 "track_index": track_index,
                 "send_index": send_index,
-                "level": sends[send_index].value
+                "level": send.value,
+                "level_display": level_display
             }
             return result
         except Exception as e:
@@ -4328,11 +4530,17 @@ class AbletonAI(ControlSurface):
                 raise IndexError("Return track index out of range")
 
             track = self._song.return_tracks[return_index]
-            track.mixer_device.volume.value = max(0.0, min(1.0, volume))
+            vol = track.mixer_device.volume
+            vol.value = max(0.0, min(1.0, volume))
 
+            try:
+                vstr = vol.str_for_value(vol.value)
+            except Exception:
+                vstr = None
             result = {
                 "return_index": return_index,
-                "volume": track.mixer_device.volume.value
+                "volume": vol.value,
+                "volume_display": vstr
             }
             return result
         except Exception as e:
@@ -4346,11 +4554,17 @@ class AbletonAI(ControlSurface):
                 raise IndexError("Return track index out of range")
 
             track = self._song.return_tracks[return_index]
-            track.mixer_device.panning.value = max(-1.0, min(1.0, pan))
+            panning = track.mixer_device.panning
+            panning.value = max(-1.0, min(1.0, pan))
 
+            try:
+                pstr = panning.str_for_value(panning.value)
+            except Exception:
+                pstr = None
             result = {
                 "return_index": return_index,
-                "panning": track.mixer_device.panning.value
+                "panning": panning.value,
+                "panning_display": pstr
             }
             return result
         except Exception as e:
@@ -5268,11 +5482,13 @@ class AbletonAI(ControlSurface):
             linear_gain = math.pow(10, gain / 20.0)
             clip.gain = max(0.0, min(4.0, linear_gain))  # Clamp to reasonable range
 
+            gain_display = clip.gain_display_string if hasattr(clip, 'gain_display_string') else None
             return {
                 "track_index": track_index,
                 "clip_index": clip_index,
                 "gain_db": gain,
-                "gain_linear": clip.gain
+                "gain_linear": clip.gain,
+                "gain_display": gain_display
             }
         except Exception as e:
             self.log_message("Error setting clip gain: " + str(e))
@@ -6404,8 +6620,13 @@ class AbletonAI(ControlSurface):
             if send_index >= len(sends):
                 return {"error": "Send index out of range (max: {0})".format(len(sends) - 1)}
             send = sends[send_index]
+            try:
+                level_display = send.str_for_value(send.value)
+            except Exception:
+                level_display = None
             return {
                 "level": send.value,
+                "level_display": level_display,
                 "min": send.min,
                 "max": send.max,
                 "name": send.name

@@ -26,8 +26,8 @@ def fake_connection(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return conn
 
 
-def test_all_128_tools_register() -> None:
-    assert len(tools.REGISTRY) == 155
+def test_all_tools_register() -> None:
+    assert len(tools.REGISTRY) == 157
 
 
 def test_no_duplicate_tool_names() -> None:
@@ -43,8 +43,8 @@ def test_every_tool_is_documented() -> None:
 def test_register_all_reports_its_count() -> None:
     mcp = MagicMock()
     count = tools.register_all(mcp)
-    assert count == 155
-    assert mcp.tool.call_count == 155
+    assert count == 157
+    assert mcp.tool.call_count == 157
 
 
 # -- the @tool decorator's error handling ---------------------------------
@@ -111,6 +111,48 @@ def test_a_failed_command_surfaces_as_error_text(fake_connection: MagicMock) -> 
     out = tracks.delete_track(track_index=99)
 
     assert "out of range" in out
+
+
+def test_failed_reports_in_band_errors_but_ignores_clean_results() -> None:
+    assert _base.failed({"error": "no such track"}) == "Error: no such track"
+    assert _base.failed({"color_index": 12}) is None
+    assert _base.failed({}) is None
+    assert _base.failed("not a dict") is None
+
+
+def test_setter_does_not_confirm_success_on_an_in_band_error(fake_connection: MagicMock) -> None:
+    """A remote handler that reports failure in-band must not render a confident
+    confirmation like 'Set track 5 color to None'."""
+    from ableton_ai.tools import tracks
+
+    fake_connection.send_command.return_value = {"error": "track has no color"}
+    out = tracks.set_track_color(track_index=5, color=12)
+
+    assert out == "Error: track has no color"
+
+
+def test_setter_prefers_live_display_string_over_raw_value(fake_connection: MagicMock) -> None:
+    """When Live returns a display string, the read-back shows it instead of the
+    raw normalized float so the agent can verify what actually landed."""
+    from ableton_ai.tools import tracks
+
+    fake_connection.send_command.return_value = {"volume": 0.72, "volume_display": "-6.0 dB"}
+    out = tracks.set_track_volume(track_index=0, volume=0.72)
+
+    assert "-6.0 dB" in out
+    assert "0.72" not in out
+
+
+def test_device_parameter_set_falls_back_to_value_without_a_display_string(
+    fake_connection: MagicMock,
+) -> None:
+    from ableton_ai.tools import devices
+
+    fake_connection.send_command.return_value = {"parameter_name": "Cutoff", "value": 0.42}
+    out = devices.set_device_parameter(track_index=0, device_index=0, parameter_index=1, value=0.42)
+
+    assert "Cutoff" in out
+    assert "0.42" in out
 
 
 def test_as_json_is_readable(fake_connection: MagicMock) -> None:

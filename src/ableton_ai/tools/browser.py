@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._base import as_json, connection, tool
+from ._base import as_json, connection, failed, tool
 
 
 @tool
@@ -107,7 +107,8 @@ def load_drum_kit(track_index: int, rack_uri: str, kit_path: str) -> str:
     - kit_path: Path to the drum kit inside the browser (e.g., 'drums/acoustic/kit1')
     """
 
-    # Step 1: Load the drum rack
+    # The rack has to exist on the track before a kit can be loaded into it,
+    # so this is two loads: the rack first, then the kit.
     result = connection().send_command(
         "load_browser_item", {"track_index": track_index, "item_uri": rack_uri}
     )
@@ -115,20 +116,17 @@ def load_drum_kit(track_index: int, rack_uri: str, kit_path: str) -> str:
     if not result.get("loaded", False):
         return f"Failed to load drum rack with URI '{rack_uri}'"
 
-    # Step 2: Get the drum kit items at the specified path
     kit_result = connection().send_command("get_browser_items_at_path", {"path": kit_path})
 
     if "error" in kit_result:
         return f"Loaded drum rack but failed to find drum kit: {kit_result.get('error')}"
 
-    # Step 3: Find a loadable drum kit
     kit_items = kit_result.get("items", [])
     loadable_kits = [item for item in kit_items if item.get("is_loadable", False)]
 
     if not loadable_kits:
         return f"Loaded drum rack but no loadable drum kits found at '{kit_path}'"
 
-    # Step 4: Load the first loadable kit
     kit_uri = loadable_kits[0].get("uri")
     connection().send_command(
         "load_browser_item", {"track_index": track_index, "item_uri": kit_uri}
@@ -172,8 +170,8 @@ def load_item_to_return(return_index: int, uri: str) -> str:
     result = connection().send_command(
         "load_browser_item_to_return", {"return_index": return_index, "item_uri": uri}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Loaded '{result.get('item_name')}' on return track '{result.get('return_track_name')}'"
 
 
@@ -189,8 +187,8 @@ def load_item_to_track(track_index: int, uri: str) -> str:
     result = connection().send_command(
         "load_instrument_or_effect", {"track_index": track_index, "uri": uri}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Loaded '{result.get('item_name')}' on track '{result.get('track_name')}'"
 
 
@@ -204,8 +202,8 @@ def search_browser(query: str, category: str = "all") -> str:
     - category: Category to search in (all, instruments, sounds, drums, audio_effects, midi_effects)
     """
     result = connection().send_command("search_browser", {"query": query, "category": category})
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
 
     count = result.get("result_count", 0)
     if count == 0:

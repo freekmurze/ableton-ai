@@ -6,7 +6,7 @@ error handling that used to be copy-pasted into every function.
 
 from __future__ import annotations
 
-from ._base import as_json, connection, tool
+from ._base import as_json, connection, failed, tool
 
 
 @tool
@@ -35,8 +35,8 @@ def create_group_track(track_indices: list[int], name: str = "Group") -> str:
     result = connection().send_command(
         "create_group_track", {"track_indices": track_indices, "name": name}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Created group '{name}' at index {result.get('group_track_index')}"
 
 
@@ -100,8 +100,8 @@ def fold_track(track_index: int) -> str:
     - track_index: The index of the group track
     """
     result = connection().send_command("fold_track", {"track_index": track_index})
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Folded track {track_index}"
 
 
@@ -270,7 +270,10 @@ def set_return_pan(return_index: int, pan: float) -> str:
     - pan: The pan position (-1.0 = left, 0.0 = center, 1.0 = right)
     """
     result = connection().send_command("set_return_pan", {"return_index": return_index, "pan": pan})
-    return f"Set return track {return_index} pan to {result.get('panning')}"
+    if error := failed(result):
+        return error
+    landed = result.get("panning_display") or result.get("panning")
+    return f"Set return track {return_index} pan to {landed}"
 
 
 @tool
@@ -285,7 +288,10 @@ def set_return_volume(return_index: int, volume: float) -> str:
     result = connection().send_command(
         "set_return_volume", {"return_index": return_index, "volume": volume}
     )
-    return f"Set return track {return_index} volume to {result.get('volume')}"
+    if error := failed(result):
+        return error
+    landed = result.get("volume_display") or result.get("volume")
+    return f"Set return track {return_index} volume to {landed}"
 
 
 @tool
@@ -301,7 +307,10 @@ def set_send_level(track_index: int, send_index: int, level: float) -> str:
     result = connection().send_command(
         "set_send_level", {"track_index": track_index, "send_index": send_index, "level": level}
     )
-    return f"Set track {track_index} send {send_index} to {result.get('level')}"
+    if error := failed(result):
+        return error
+    landed = result.get("level_display") or result.get("level")
+    return f"Set track {track_index} send {send_index} to {landed}"
 
 
 @tool
@@ -314,8 +323,8 @@ def set_track_arm(track_index: int, arm: bool) -> str:
     - arm: True to arm for recording, False to disarm
     """
     result = connection().send_command("set_track_arm", {"track_index": track_index, "arm": arm})
-    if "error" in result:
-        return f"Track {track_index}: {result.get('error')}"
+    if error := failed(result):
+        return error
     state = "armed" if result.get("arm") else "disarmed"
     return f"Track {track_index} is now {state}"
 
@@ -332,6 +341,8 @@ def set_track_color(track_index: int, color: int) -> str:
     result = connection().send_command(
         "set_track_color", {"track_index": track_index, "color": color}
     )
+    if error := failed(result):
+        return error
     return f"Set track {track_index} color to {result.get('color_index')}"
 
 
@@ -353,6 +364,8 @@ def set_track_input_routing(track_index: int, routing_type: str, routing_channel
             "routing_channel": routing_channel,
         },
     )
+    if error := failed(result):
+        return error
     return f"Set track {track_index} input to {result.get('input_routing_type')}"
 
 
@@ -368,8 +381,8 @@ def set_track_monitoring(track_index: int, monitoring: str) -> str:
     result = connection().send_command(
         "set_track_monitoring", {"track_index": track_index, "monitoring": monitoring}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Set track {track_index} monitoring to {monitoring}"
 
 
@@ -383,6 +396,8 @@ def set_track_mute(track_index: int, mute: bool) -> str:
     - mute: True to mute, False to unmute
     """
     result = connection().send_command("set_track_mute", {"track_index": track_index, "mute": mute})
+    if error := failed(result):
+        return error
     state = "muted" if result.get("mute") else "unmuted"
     return f"Track {track_index} is now {state}"
 
@@ -397,6 +412,8 @@ def set_track_name(track_index: int, name: str) -> str:
     - name: The new name for the track
     """
     result = connection().send_command("set_track_name", {"track_index": track_index, "name": name})
+    if error := failed(result):
+        return error
     return f"Renamed track to: {result.get('name', name)}"
 
 
@@ -418,6 +435,8 @@ def set_track_output_routing(track_index: int, routing_type: str, routing_channe
             "routing_channel": routing_channel,
         },
     )
+    if error := failed(result):
+        return error
     return f"Set track {track_index} output to {result.get('output_routing_type')}"
 
 
@@ -431,7 +450,10 @@ def set_track_pan(track_index: int, pan: float) -> str:
     - pan: Pan position from -1.0 (full left) to 1.0 (full right). 0.0 is center.
     """
     result = connection().send_command("set_track_pan", {"track_index": track_index, "pan": pan})
-    return f"Track {track_index} pan set to {result.get('panning', pan):.2f}"
+    if error := failed(result):
+        return error
+    landed = result.get("panning_display") or f"{result.get('panning', pan):.2f}"
+    return f"Track {track_index} pan set to {landed}"
 
 
 @tool
@@ -444,6 +466,8 @@ def set_track_solo(track_index: int, solo: bool) -> str:
     - solo: True to solo, False to unsolo
     """
     result = connection().send_command("set_track_solo", {"track_index": track_index, "solo": solo})
+    if error := failed(result):
+        return error
     state = "soloed" if result.get("solo") else "unsoloed"
     return f"Track {track_index} is now {state}"
 
@@ -460,7 +484,10 @@ def set_track_volume(track_index: int, volume: float) -> str:
     result = connection().send_command(
         "set_track_volume", {"track_index": track_index, "volume": volume}
     )
-    return f"Track {track_index} volume set to {result.get('volume', volume):.2f}"
+    if error := failed(result):
+        return error
+    landed = result.get("volume_display") or f"{result.get('volume', volume):.2f}"
+    return f"Track {track_index} volume set to {landed}"
 
 
 @tool
@@ -472,8 +499,8 @@ def unfold_track(track_index: int) -> str:
     - track_index: The index of the group track
     """
     result = connection().send_command("unfold_track", {"track_index": track_index})
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Unfolded track {track_index}"
 
 

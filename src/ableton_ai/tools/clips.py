@@ -6,7 +6,7 @@ error handling that used to be copy-pasted into every function.
 
 from __future__ import annotations
 
-from ._base import as_json, connection, tool
+from ._base import as_json, connection, failed, tool
 
 
 @tool
@@ -191,6 +191,8 @@ def set_clip_color(track_index: int, clip_index: int, color: int) -> str:
     result = connection().send_command(
         "set_clip_color", {"track_index": track_index, "clip_index": clip_index, "color": color}
     )
+    if error := failed(result):
+        return error
     return f"Set clip color to {result.get('color_index')}"
 
 
@@ -207,9 +209,10 @@ def set_clip_gain(track_index: int, clip_index: int, gain: float) -> str:
     result = connection().send_command(
         "set_clip_gain", {"track_index": track_index, "clip_index": clip_index, "gain": gain}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
-    return f"Set clip gain to {gain}dB"
+    if error := failed(result):
+        return error
+    landed = result.get("gain_display") or f"{gain}dB"
+    return f"Set clip gain to {landed}"
 
 
 @tool
@@ -272,8 +275,8 @@ def set_clip_pitch(track_index: int, clip_index: int, pitch: int) -> str:
     result = connection().send_command(
         "set_clip_pitch", {"track_index": track_index, "clip_index": clip_index, "pitch": pitch}
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Set clip pitch to {pitch} semitones"
 
 

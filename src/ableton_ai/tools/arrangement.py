@@ -6,7 +6,7 @@ error handling that used to be copy-pasted into every function.
 
 from __future__ import annotations
 
-from ._base import as_json, connection, tool
+from ._base import as_json, connection, failed, tool
 
 
 @tool
@@ -131,6 +131,8 @@ def jump_to_time(time: float) -> str:
     - time: Position in beats to jump to
     """
     result = connection().send_command("jump_to_time", {"time": time})
+    if error := failed(result):
+        return error
     return f"Jumped to position {result.get('current_time')}"
 
 
@@ -166,8 +168,8 @@ def set_clip_warp_mode(track_index: int, clip_index: int, warp_mode: str) -> str
         "set_clip_warp_mode",
         {"track_index": track_index, "clip_index": clip_index, "warp_mode": warp_mode},
     )
-    if "error" in result:
-        return f"Error: {result.get('error')}"
+    if error := failed(result):
+        return error
     return f"Set clip warp mode to {warp_mode}"
 
 
@@ -228,3 +230,74 @@ def get_arrangement_clips(track_index: int) -> str:
     """
     result = connection().send_command("get_arrangement_clips", {"track_index": track_index})
     return as_json(result)
+
+
+@tool
+def get_arrangement_clip_notes(track_index: int, clip_index: int) -> str:
+    """
+    Read the MIDI notes of a clip on a track's Arrangement timeline.
+
+    get_clip_notes addresses Session clip slots, so it cannot see notes that
+    live on the timeline and reports "No clip in slot" instead. Use this for
+    Arrangement clips, with the clip_index reported by get_arrangement_clips.
+
+    Returns probability and velocity_deviation per note where Live exposes
+    them (has_probability tells you whether it could).
+
+    A looped clip stores one copy of its notes and repeats them, so a 16-beat
+    loop stretched across 1147 beats returns 16 beats of notes. Compare
+    loop_start/loop_end against start_time/end_time to see the repetition.
+
+    Parameters:
+    - track_index: The index of the track
+    - clip_index: Index of the clip on the timeline, from get_arrangement_clips
+    """
+    result = connection().send_command(
+        "get_arrangement_clip_notes", {"track_index": track_index, "clip_index": clip_index}
+    )
+    return as_json(result)
+
+
+@tool
+def set_arrangement_clip_notes(
+    track_index: int,
+    clip_index: int,
+    notes: list[dict[str, int | float | bool]],
+    replace: bool = True,
+) -> str:
+    """
+    Write notes into an existing Arrangement clip, editing it in place.
+
+    Prefer this over create_arrangement_midi_clip when the clip already exists.
+    Creating a clip builds a new one, which discards the loop braces, the name,
+    the colour and any clip envelopes. Editing keeps all of it, so a 16-beat
+    loop stretched across 300 bars stays stretched instead of collapsing.
+
+    Notes keep probability and velocity_deviation, so randomness and
+    humanization survive. Read with get_arrangement_clip_notes, change what you
+    need, write the whole list back, and everything else is preserved.
+
+    Parameters:
+    - track_index: The index of the track
+    - clip_index: Index of the clip on the timeline, from get_arrangement_clips
+    - notes: Note dicts (pitch, start_time, duration, velocity, mute, optional
+      probability and velocity_deviation). start_time is relative to the clip.
+    - replace: True clears the clip's existing notes first. False layers the new
+      notes on top of what is already there.
+    """
+    result = connection().send_command(
+        "set_arrangement_clip_notes",
+        {
+            "track_index": track_index,
+            "clip_index": clip_index,
+            "notes": notes,
+            "replace": replace,
+        },
+    )
+    if error := failed(result):
+        return error
+    return (
+        f"{'Replaced' if replace else 'Added'} notes in arrangement clip {clip_index} on track "
+        f"{track_index}: removed {result.get('notes_removed', 0)}, "
+        f"added {result.get('notes_added', 0)}"
+    )

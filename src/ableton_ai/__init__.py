@@ -17,8 +17,8 @@ from .exceptions import (
 
 try:
     # Read the version from package metadata rather than hardcoding it here.
-    # The old __init__ said 0.1.0 while pyproject said 2.1.0.
-    __version__ = version("ableton-mcp")
+    # The distribution is named "ableton-ai" in pyproject.toml.
+    __version__ = version("ableton-ai")
 except PackageNotFoundError:  # pragma: no cover - running from a source tree
     __version__ = "0.0.0.dev0"
 

@@ -10,7 +10,7 @@ Every tool in the original ``server.py`` repeated the same five lines:
         logger.error(f"Error ...: {str(e)}")
         return f"Error ...: {str(e)}"
 
-128 times over, which is roughly 640 lines that say nothing. The decorator below
+155 times over, which is hundreds of lines that say nothing. The decorator below
 does it once.
 """
 
@@ -69,3 +69,19 @@ def tool(fn: Callable[P, R]) -> Callable[P, R]:
 def as_json(data: Any) -> str:
     """Render a result as JSON for the model to read."""
     return json.dumps(data, indent=2, default=str)
+
+
+def failed(result: Any) -> str | None:
+    """Return an ``Error: ...`` message if a command result carries an error.
+
+    ``send_command`` raises when the remote script reports a *top-level* error, but
+    some handlers report failure in-band as an ``error`` key inside the result dict
+    instead of raising. A setter that skips this check renders a confident
+    confirmation over a failed operation (e.g. ``Set track color to None``). Guarding
+    every setter with this one helper gives them a single, uniform failure contract.
+
+    Returns ``None`` when the result carries no error.
+    """
+    if isinstance(result, dict) and result.get("error"):
+        return f"Error: {result['error']}"
+    return None

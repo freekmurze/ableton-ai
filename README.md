@@ -1,8 +1,23 @@
 # Ableton AI
 
-Control Ableton Live from an AI assistant like Claude. You describe what you want in plain language, and it builds it in your Live set: tracks, instruments, effects, MIDI clips, automation, and mixing. Around 130 commands covering most of the Live Object Model.
+Control Ableton Live from an AI assistant like Claude. You describe what you want in plain language, and it builds it in your Live set: tracks, instruments, effects, MIDI clips, automation, and mixing. Over 150 commands covering most of the Live Object Model.
 
 You describe, it builds, you listen and judge. The assistant has no ears, so it handles the mechanical work while you keep the taste.
+
+## Contents
+
+- [What you can do with it](#what-you-can-do-with-it)
+- [How it works](#how-it-works)
+- [Installation](#installation)
+- [Getting started](#getting-started)
+- [The skill](#the-skill)
+- [Using a local model instead of Claude](#using-a-local-model-instead-of-claude)
+- [Editing the remote script](#editing-the-remote-script)
+- [Safety](#safety)
+- [Testing](#testing)
+- [Architecture](#architecture)
+- [Credits](#credits)
+- [License](#license)
 
 ## What you can do with it
 
@@ -86,9 +101,9 @@ For Claude Desktop, add this to `claude_desktop_config.json` (find it under Sett
 
 Restart your AI client after either one, so it picks up the new server.
 
-Finally, turn the remote script on in Ableton. Open Settings, then Link, Tempo & MIDI. Under Control Surface, pick AbletonMCP. Leave Input and Output on None.
+Finally, turn the remote script on in Ableton. Open Settings, then Link, Tempo & MIDI. Under Control Surface, pick AbletonAI. Leave Input and Output on None.
 
-Ableton's status bar should flash `AbletonMCP: Listening for commands on port 9877`. If it doesn't, the remote script isn't installed, so rerun the first step and restart Live.
+Ableton's status bar should flash `AbletonAI: Listening for commands on port 9877`. If it doesn't, the remote script isn't installed, so rerun the first step and restart Live.
 
 ## Getting started
 
@@ -126,6 +141,12 @@ Restart Claude Code. It picks the skill up whenever you ask for something musica
 ## Using a local model instead of Claude
 
 If you'd rather not use an MCP client, there's an HTTP server that exposes the same commands. That lets you drive Ableton from a local model like [Ollama](https://ollama.com), or from anything that can make an HTTP request.
+
+This server lives in the git checkout, so clone the repo first and install the optional `rest` extra:
+
+```bash
+uv sync --extra rest
+```
 
 Start it in its own terminal:
 
@@ -166,7 +187,7 @@ If you change the remote script, Ableton needs a restart to load it, because Liv
 
 The remote script opens an unauthenticated socket on `localhost:9877`. It isn't reachable from the network, but any process running as you can drive Ableton through it.
 
-The more practical point: the assistant has 130 commands that change your project, and it can't hear what it's doing. It will occasionally clear something you cared about. Work on copies, save often, and lean on Cmd+Z, which covers most operations.
+The more practical point: the assistant has over 150 commands, many of which change your project, and it can't hear what it's doing. It will occasionally clear something you cared about. Work on copies, save often, and lean on Cmd+Z, which covers most operations.
 
 ## Testing
 

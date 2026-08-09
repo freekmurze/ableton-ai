@@ -11,11 +11,11 @@ import os
 from dataclasses import dataclass
 
 
-def _f(name: str, default: float) -> float:
+def _env_float(name: str, default: float) -> float:
     return float(os.environ.get(name, default))
 
 
-def _i(name: str, default: int) -> int:
+def _env_int(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
 
 
@@ -24,18 +24,18 @@ class Settings:
     """Connection and timeout settings for talking to the remote script."""
 
     host: str = os.environ.get("ABLETON_HOST", "localhost")
-    port: int = _i("ABLETON_PORT", 9877)
+    port: int = _env_int("ABLETON_PORT", 9877)
 
-    recv_timeout: float = _f("MCP_RECV_TIMEOUT", 15.0)
-    modifying_cmd_timeout: float = _f("MCP_MODIFYING_CMD_TIMEOUT", 15.0)
-    read_cmd_timeout: float = _f("MCP_READ_CMD_TIMEOUT", 10.0)
-    health_check_timeout: float = _f("MCP_HEALTH_CHECK_TIMEOUT", 2.0)
+    recv_timeout: float = _env_float("MCP_RECV_TIMEOUT", 15.0)
+    modifying_cmd_timeout: float = _env_float("MCP_MODIFYING_CMD_TIMEOUT", 15.0)
+    read_cmd_timeout: float = _env_float("MCP_READ_CMD_TIMEOUT", 10.0)
+    health_check_timeout: float = _env_float("MCP_HEALTH_CHECK_TIMEOUT", 2.0)
 
-    command_delay: float = _f("MCP_COMMAND_DELAY", 0.05)
-    retry_delay: float = _f("MCP_RETRY_DELAY", 1.0)
-    max_connect_attempts: int = _i("MCP_MAX_CONNECT_ATTEMPTS", 3)
+    command_delay: float = _env_float("MCP_COMMAND_DELAY", 0.05)
+    retry_delay: float = _env_float("MCP_RETRY_DELAY", 1.0)
+    max_connect_attempts: int = _env_int("MCP_MAX_CONNECT_ATTEMPTS", 3)
 
-    buffer_size: int = _i("MCP_BUFFER_SIZE", 8192)
+    buffer_size: int = _env_int("MCP_BUFFER_SIZE", 8192)
 
     def timeout_for(self, command_type: str) -> float:
         """Pick a timeout based on what the command does.
